@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎉 Live-Quiz Party!</title>
+
+    <!-- Supabase JS v2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+    </script>
+    <!-- SheetJS für Excel-Parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
+    </script>
+    <!-- QRCode.js -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js">
+    </script>
+
+    <!-- Google Font: Fredoka (rund & freundlich) -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #fef9e8;
+            --card-bg: #ffffff;
+            --border: #2d3436;
+            --shadow: #dfe6e9;
+            --purple: #6c5ce7;
+            --orange: #e67e22;
+            --green: #2ecc71;
+            --red: #e74c3c;
+            --blue: #3498db;
+            --pink: #fd79a8;
+            --yellow: #fdcb6e;
+            --text: #2d3436;
+            --radius: 18px;
+            --border-width: 3px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Fredoka', 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            background-image:
+                radial-gradient(circle at 10% 20%, #ffeaa7 1px, transparent 1px),
+                radial-gradient(circle at 90% 70%, #fab1a0 1px, transparent 1px),
+                radial-gradient(circle at 30% 80%, #a29bfe 1px, transparent 1px),
+                radial-gradient(circle at 70% 10%, #55efc4 1px, transparent 1px);
+            background-size: 80px 80px, 100px 100px, 120px 120px, 90px 90px;
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Comic-Card Style */
+        .card {
+            background: var(--card-bg);
+            border: var(--border-width) solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px 20px;
+            margin-bottom: 20px;
+            box-shadow: 8px 8px 0 var(--shadow);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 10px 10px 0 var(--shadow);
+        }
+        .card:active {
+            transform: translate(2px, 2px);
+            box-shadow: 4px 4px 0 var(--shadow);
+        }
+
+        .card-header {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header .emoji {
+            font-size: 1.6rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 12px 22px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            border: 3px solid var(--border);
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 var(--shadow);
+            transition: all 0.1s ease;
+            text-align: center;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            min-height: 48px;
+            min-width: 48px;
+        }
+        .btn:active {
+            transform: translate(3px, 3px);
+            box-shadow: 1px 1px 0 var(--shadow);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 4px 4px 0 var(--shadow);
+        }
+        .btn-purple {
+            background: var(--purple);
+            color: #fff;
+        }
+        .btn-orange {
+            background: var(--orange);
+            color: #fff;
+        }
+        .btn-green {
+            background: var(--green);
+            color: #fff;
+        }
+        .btn-red {
+            background: var(--red);
+            color: #fff;
+        }
+        .btn-blue {
+            background: var(--blue);
+            color: #fff;
+        }
+        .btn-yellow {
+            background: var(--yellow);
+            color: var(--text);
+        }
+        .btn-pink {
+            background: var(--pink);
+            color: #fff;
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--text);
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            min-height: 40px;
+        }
+        .btn-lg {
+            padding: 16px 30px;
+            font-size: 1.2rem;
+            min-height: 56px;
+        }
+
+        /* Inputs */
+        input[type="text"],
+        input[type="number"],
+        input[type="url"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            font-family: inherit;
+            font-size: 1rem;
+            border: 3px solid var(--border);
+            border-radius: 40px;
+            box-shadow: 3px 3px 0 var(--shadow);
+            outline: none;
+            transition: box-shadow 0.15s;
+            background: #fff;
+            color: var(--text);
+        }
+        input:focus,
+        textarea:focus,
+        select:focus {
+            box-shadow: 5px 5px 0 var(--purple);
+        }
+        textarea {
+            border-radius: 18px;
+            min-height: 80px;
+            resize: vertical;
+        }
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        /* QR Code Container */
+        #qrcode-container {
+            display: flex;
+            justify-content: center;
+            padding: 16px;
+            background: #fff;
+            border-radius: 16px;
+            border: 2px dashed var(--border);
+        }
+        #qrcode-container canvas,
+        #qrcode-container img {
+            max-width: 180px;
+            height: auto;
+        }
+
+        /* Grid für Spielerliste */
+        .player-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .player-chip {
+            background: var(--yellow);
+            border: 3px solid var(--border);
+            border-radius: 30px;
+            padding: 8px 16px;
+            font-weight: 600;
+            box-shadow: 3px 3px 0 var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .player-chip .score {
+            background: var(--purple);
+            color: #fff;
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: 0.85rem;
+        }
+
+        /* Ranking-Tabelle */
+        .ranking-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            border: 3px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 4px 4px 0 var(--shadow);
+        }
+        .ranking-table th,
+        .ranking-table td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 2px solid #eee;
+        }
+        .ranking-table th {
+            background: var(--purple);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .ranking-table tr:nth-child(even) td {
+            background: #fdf6ff;
+        }
+        .ranking-table tr:last-child td {
+            border-bottom: none;
+        }
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+        .rank-1 {
+            background: #ffd700;
+            color: #000;
+        }
+        .rank-2 {
+            background: #c0c0c0;
+            color: #000;
+        }
+        .rank-3 {
+            background: #cd7f32;
+            color: #fff;
+        }
+
+        /* Timer */
+        .timer-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            padding: 10px;
+            border-radius: 20px;
+            border: 3px solid var(--border);
+            box-shadow: 4px 4px 0 var(--shadow);
+            background: #fff;
+            min-width: 80px;
+        }
+        .timer-warning {
+            background: #ffeaa7 !important;
+            animation: pulse 0.6s ease-in-out infinite;
+        }
+        .timer-danger {
+            background: #fab1a0 !important;
+            animation: pulse 0.35s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%,
+            100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.06);
+            }
+        }
+
+        /* MC Option Buttons */
+        .option-btn {
+            display: block;
+            width: 100%;
+            padding: 14px 18px;
+            margin: 8px 0;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 500;
+            border: 3px solid var(--border);
+            border-radius: 30px;
+            cursor: pointer;
+            background: #fff;
+            box-shadow: 4px 4px 0 var(--shadow);
+            text-align: left;
+            transition: all 0.1s;
+            touch-action: manipulation;
+        }
+        .option-btn:hover {
+            background: #f0ecff;
+        }
+        .option-btn.selected {
+            background: var(--purple);
+            color: #fff;
+            border-color: var(--purple);
+            box-shadow: 4px 4px 0 #4a3db5;
+        }
+        .option-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--shadow);
+        }
+
+        /* Antwort-Liste (Host) */
+        .answer-item {
+            background: #f8f9fa;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 14px;
+            margin: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        .answer-item.correct-glow {
+            animation: glowGreen 0.6s ease-out;
+        }
+        @keyframes glowGreen {
+            0% {
+                background: #2ecc71;
+                color: #fff;
+            }
+            100% {
+                background: #f8f9fa;
+                color: inherit;
+            }
+        }
+
+        /* Versteckte Bereiche */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--purple);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .card {
+                padding: 16px 12px;
+            }
+            .btn {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+                min-height: 44px;
+            }
+            .timer-display {
+                font-size: 1.8rem;
+                min-width: 60px;
+            }
+            .player-chip {
+                padding: 6px 12px;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Glow für richtige Antwort */
+        .glow-green {
+            animation: glowBg 0.8s ease-out;
+        }
+        @keyframes glowBg {
+            0% {
+                background: #2ecc71;
+                color: #fff;
+            }
+            100% {
+                background: #fff;
+                color: inherit;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="app-container">
+        <!-- Dynamisch befüllt via JS -->
+    </div>
+
+    <script>
+        // ============================================================
+        // SUPABASE KONFIGURATION (Platzhalter – bitte ersetzen!)
+        // ============================================================
+        const SUPABASE_URL = 'https://xvnhtfmedzjblinchzmt.supabase.co';
+        const SUPABASE_KEY =
+            'sb_publishable_8wS4n-07wc2SCmniuTdYmA_uRIlNE4z';
+
+        // Supabase-Client initialisieren
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ============================================================
+        // GLOBALE VARIABLEN
+        // ============================================================
+        let currentView = null; // 'host' oder 'player'
+        let currentSessionId = null;
+        let currentPlayerId = null;
+        let currentPlayerName = null;
+        let currentQuestion = null; // Aktuell angezeigte Frage (Objekt aus DB)
+        let allQuestions = []; // Alle Fragen der Session (für Host)
+        let players = []; // Spielerliste
+        let answersForCurrentQuestion = []; // Antworten zur aktuellen Frage
+        let timerInterval = null;
+        let timeRemaining = 0;
+        let answerSubmitted = false; // Für Spieler: ob bereits geantwortet
+        let selectedMcOption = null; // Für MC: ausgewählte Option
+
+        // AudioContext für Sound (wird bei User-Interaktion initialisiert)
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playPling() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(audioCtx.currentTime);
+                osc.stop(audioCtx.currentTime + 0.2);
+            } catch (e) { /* silent */ }
+        }
+
+        // ============================================================
+        // URL-PARAMETER PARSEN
+        // ============================================================
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                view: params.get('view'),
+                session: params.get('session'),
+            };
+        }
+
+        // ============================================================
+        // APP INIT
+        // ============================================================
+        async function initApp() {
+            const { view, session } = getUrlParams();
+            currentView = view;
+            currentSessionId = session ? parseInt(session) : null;
+
+            const container = document.getElementById('app-container');
+
+            if (view === 'host') {
+                container.innerHTML = renderHostView();
+                await setupHost();
+            } else if (view === 'join' && currentSessionId) {
+                container.innerHTML = renderPlayerJoinView();
+                await setupPlayerJoin();
+            } else {
+                // Fallback: Landing-Page
+                container.innerHTML = renderLandingPage();
+            }
+        }
+
+        // ============================================================
+        // LANDING PAGE (falls keine Parameter)
+        // ============================================================
+        function renderLandingPage() {
+            return `
+            <div class="card" style="text-align:center;">
+              <h1>🎉 Live-Quiz Party!</h1>
+              <p style="font-size:1.1rem;margin:16px 0;">Scanne den QR-Code vom Host oder erstelle dein eigenes Quiz!</p>
+              <a href="?view=host" class="btn btn-purple btn-lg" style="text-decoration:none;display:inline-block;">🚀 Neues Quiz starten</a>
+            </div>`;
+        }
+
+        // ============================================================
+        // HOST-VIEW RENDERING
+        // ============================================================
+        function renderHostView() {
+            return `
+            <div class="card" id="host-setup-card">
+              <div class="card-header"><span class="emoji">🎤</span> Quiz-Session erstellen</div>
+              <div id="host-session-creator">
+                <input type="text" id="session-name-input" placeholder="Name der Session (z.B. Geburtstagsquiz)" />
+                <button class="btn btn-purple btn-lg" id="btn-create-session" style="margin-top:12px;width:100%;">✨ Neue Session erstellen</button>
+              </div>
+              <div id="host-session-info" class="hidden">
+                <p><strong>Session:</strong> <span id="host-session-name-display"></span> (ID: <span id="host-session-id-display"></span>)</p>
+                <div id="qrcode-container"></div>
+                <p style="text-align:center;font-size:0.85rem;word-break:break-all;margin-top:8px;">
+                  Link: <span id="host-join-link"></span>
+                </p>
+                <button class="btn btn-sm btn-outline" id="btn-copy-link" style="margin-top:6px;">📋 Link kopieren</button>
+              </div>
+            </div>
+
+            <div class="card hidden" id="host-excel-card">
+              <div class="card-header"><span class="emoji">📂</span> Fragen hochladen (Excel)</div>
+              <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" />
+              <button class="btn btn-orange btn-sm" id="btn-upload-excel" style="margin-top:8px;" disabled>📤 Hochladen & Speichern</button>
+              <span id="excel-status" style="margin-left:10px;font-size:0.9rem;"></span>
+              <div id="excel-preview" style="margin-top:10px;font-size:0.85rem;"></div>
+            </div>
+
+            <div class="card hidden" id="host-game-card">
+              <div class="card-header"><span class="emoji">👥</span> Spieler (<span id="host-player-count">0</span>)</div>
+              <div class="player-grid" id="host-player-list"></div>
+            </div>
+
+            <div class="card hidden" id="host-question-card">
+              <div class="card-header"><span class="emoji">❓</span> Aktuelle Frage</div>
+              <div id="host-question-display">
+                <h2 id="host-question-text" style="margin-bottom:8px;"></h2>
+                <img id="host-question-image" src="" alt="Frage-Bild" style="max-width:100%;max-height:300px;border-radius:12px;display:none;" />
+                <p style="font-size:0.85rem;color:#666;">Typ: <span id="host-question-type"></span> | Zeit: <span id="host-question-time"></span>s</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:12px 0;">
+                <div class="timer-display" id="host-timer">--</div>
+                <button class="btn btn-green btn-lg" id="btn-start-question" style="display:none;">▶️ Frage starten</button>
+                <button class="btn btn-orange btn-lg hidden" id="btn-evaluate">📊 Auswerten</button>
+                <button class="btn btn-red btn-lg hidden" id="btn-next-question">⏭️ Nächste Frage</button>
+                <button class="btn btn-yellow btn-sm hidden" id="btn-manual-score">✏️ Punkte manuell anpassen</button>
+              </div>
+              <div id="host-answers-list" style="margin-top:10px;">
+                <p style="font-weight:600;">Eingegangene Antworten:</p>
+                <div id="host-answers-container"></div>
+              </div>
+              <div id="host-manual-score-area" class="hidden" style="margin-top:10px;padding:12px;border:2px dashed var(--border);border-radius:12px;">
+                <p style="font-weight:600;">Manuelle Punkteanpassung:</p>
+                <select id="manual-player-select" style="margin-bottom:8px;"></select>
+                <input type="number" id="manual-score-input" placeholder="Neue Punktzahl" step="0.001" style="margin-bottom:8px;" />
+                <button class="btn btn-sm btn-yellow" id="btn-apply-manual-score">✅ Anwenden</button>
+            </div>
+          </div>
+
+          <div class="card hidden" id="host-final-card">
+            <div class="card-header"><span class="emoji">🏆</span> Endwertung</div>
+            <div id="host-final-ranking"></div>
+            <button class="btn btn-purple btn-lg" id="btn-new-game" style="margin-top:12px;">🔄 Neues Quiz</button>
+          </div>
+        `;
+    }
+
+    // ============================================================
+    // HOST SETUP
+    // ============================================================
+    async function setupHost() {
+        const btnCreate = document.getElementById('btn-create-session');
+        const sessionNameInput = document.getElementById('session-name-input');
+        const btnUploadExcel = document.getElementById('btn-upload-excel');
+        const excelFileInput = document.getElementById('excel-file-input');
+        const btnCopyLink = document.getElementById('btn-copy-link');
+
+        btnCreate.addEventListener('click', async () => {
+            const name = sessionNameInput.value.trim();
+            if (!name) {
+                alert('Bitte einen Session-Namen eingeben!');
+                return;
+            }
+            btnCreate.disabled = true;
+            btnCreate.textContent = '⏳ Erstelle...';
+            try {
+                const { data, error } = await supabase
+                    .from('quiz_sessions')
+                    .insert({ name: name, active: true, current_question_index: 0 })
+                    .select()
+                    .single();
+                if (error) throw error;
+                currentSessionId = data.id;
+                document.getElementById('host-session-creator').classList.add('hidden');
+                document.getElementById('host-session-info').classList.remove('hidden');
+                document.getElementById('host-session-name-display').textContent = data.name;
+                document.getElementById('host-session-id-display').textContent = data.id;
+                const joinUrl =
+                    `${window.location.origin}${window.location.pathname}?view=join&session=${data.id}`;
+                document.getElementById('host-join-link').textContent = joinUrl;
+                // QR-Code generieren
+                const qrContainer = document.getElementById('qrcode-container');
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: joinUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#2d3436',
+                    colorLight: '#ffffff',
+                });
+                document.getElementById('host-excel-card').classList.remove('hidden');
+                document.getElementById('host-game-card').classList.remove('hidden');
+                btnUploadExcel.disabled = false;
+                // Realtime-Abos starten
+                subscribeHostRealtime(data.id);
+                // URL aktualisieren
+                window.history.replaceState({}, '', `?view=host&session=${data.id}`);
+            } catch (err) {
+                alert('Fehler beim Erstellen der Session: ' + err.message);
+                console.error(err);
+            }
+            btnCreate.disabled = false;
+            btnCreate.textContent = '✨ Neue Session erstellen';
+        });
+
+        excelFileInput.addEventListener('change', () => {
+            btnUploadExcel.disabled = !excelFileInput.files.length;
+        });
+
+        btnUploadExcel.addEventListener('click', async () => {
+            await handleExcelUpload();
+        });
+
+        btnCopyLink?.addEventListener('click', () => {
+            const link = document.getElementById('host-join-link').textContent;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('Link kopiert! 📋');
+            }).catch(() => {
+                prompt('Link manuell kopieren:', link);
+            });
+        });
+
+        // Prüfen, ob bereits eine Session in der URL steht (Seite neu geladen)
+        if (currentSessionId) {
+            const { data: existingSession } = await supabase
+                .from('quiz_sessions')
+                .select('*')
+                .eq('id', currentSessionId)
+                .single();
+            if (existingSession) {
+                document.getElementById('host-session-creator').classList.add('hidden');
+                document.getElementById('host-session-info').classList.remove('hidden');
+                document.getElementById('host-session-name-display').textContent = existingSession.name;
+                document.getElementById('host-session-id-display').textContent = existingSession.id;
+                const joinUrl =
+                    `${window.location.origin}${window.location.pathname}?view=join&session=${existingSession.id}`;
+                document.getElementById('host-join-link').textContent = joinUrl;
+                const qrContainer = document.getElementById('qrcode-container');
+                qrContainer.innerHTML = '';
+                new QRCode(qrContainer, {
+                    text: joinUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark: '#2d3436',
+                    colorLight: '#ffffff',
+                });
+                document.getElementById('host-excel-card').classList.remove('hidden');
+                document.getElementById('host-game-card').classList.remove('hidden');
+                btnUploadExcel.disabled = false;
+                subscribeHostRealtime(existingSession.id);
+                // Laden der existierenden Fragen & Zustand
+                await loadHostState(existingSession);
+            }
+        }
+    }
+
+    async function loadHostState(session) {
+        currentSessionId = session.id;
+        // Lade Fragen
+        const { data: questions } = await supabase
+            .from('quiz_questions')
+            .select('*')
+            .eq('session_id', session.id)
+            .order('order_index', { ascending: true });
+        allQuestions = questions || [];
+        // Lade Spieler
+        const { data: pls } = await supabase
+            .from('quiz_players')
+            .select('*')
+            .eq('session_id', session.id);
+        players = pls || [];
+        updateHostPlayerList();
+        // Wenn current_question_index >= 0 und Fragen existieren
+        if (session.current_question_index >= 0 && allQuestions.length > 0) {
+            const qIndex = Math.min(session.current_question_index, allQuestions.length - 1);
+            currentQuestion = allQuestions[qIndex];
+            document.getElementById('host-question-card').classList.remove('hidden');
+            displayHostQuestion(currentQuestion);
+            // Lade existierende Antworten für diese Frage
+            await loadAnswersForCurrentQuestion();
+            // Zeige passende Buttons
+            updateHostButtons(session);
+        }
+        if (session.current_question_index >= allQuestions.length && allQuestions.length > 0) {
+            showFinalRanking();
+        }
+    }
+
+    function updateHostButtons(session) {
+        const btnStart = document.getElementById('btn-start-question');
+        const btnEval = document.getElementById('btn-evaluate');
+        const btnNext = document.getElementById('btn-next-question');
+        const btnManual = document.getElementById('btn-manual-score');
+        btnStart.style.display = 'none';
+        btnEval.classList.add('hidden');
+        btnNext.classList.add('hidden');
+        btnManual.classList.add('hidden');
+
+        if (!currentQuestion) {
+            btnStart.style.display = 'inline-block';
+            return;
+        }
+        // Wenn Frage noch nicht gestartet (keine Zeit aktiv)
+        if (timeRemaining <= 0 && answersForCurrentQuestion.length === 0 && !answerSubmitted) {
+            btnStart.style.display = 'inline-block';
+        }
+        // Wenn Antworten da sind und noch nicht ausgewertet
+        if (answersForCurrentQuestion.length > 0) {
+            btnEval.classList.remove('hidden');
+            btnManual.classList.remove('hidden');
+        }
+        // Wenn ausgewertet wurde (check: erste Antwort hat score_awarded != null)
+        const hasScores = answersForCurrentQuestion.some(a => a.score_awarded !== null && a.score_awarded !==
+            undefined);
+        if (hasScores || (answersForCurrentQuestion.length > 0 && timeRemaining <= 0 && document.getElementById(
+                'host-timer').textContent === '0')) {
+            btnNext.classList.remove('hidden');
+            btnEval.classList.add('hidden');
+            btnStart.style.display = 'none';
+        }
+    }
+
+    // ============================================================
+    // HOST REALTIME SUBSCRIPTIONS
+    // ============================================================
+    function subscribeHostRealtime(sessionId) {
+        // Spieler-Joins
+        supabase
+            .channel('host-players-' + sessionId)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'quiz_players',
+                filter: `session_id=eq.${sessionId}`,
+            }, async () => {
+                const { data } = await supabase
+                    .from('quiz_players')
+                    .select('*')
+                    .eq('session_id', sessionId);
+                players = data || [];
+                updateHostPlayerList();
+                playPling();
+            })
+            .subscribe();
+
+        // Antworten
+        supabase
+            .channel('host-answers-' + sessionId)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'quiz_answers',
+                filter: currentQuestion ? `question_id=eq.${currentQuestion.id}` : undefined,
+            }, async (payload) => {
+                if (currentQuestion && payload.new.question_id === currentQuestion.id) {
+                    await loadAnswersForCurrentQuestion();
+                    playPling();
+                }
+            })
+            .subscribe();
+    }
+
+    async function loadAnswersForCurrentQuestion() {
+        if (!currentQuestion) return;
+        const { data } = await supabase
+            .from('quiz_answers')
+            .select('*, quiz_players!inner(player_name)')
+            .eq('question_id', currentQuestion.id);
+        answersForCurrentQuestion = data || [];
+        renderHostAnswers();
+        updateHostButtons();
+    }
+
+    function renderHostAnswers() {
+        const container = document.getElementById('host-answers-container');
+        if (!container) return;
+        if (answersForCurrentQuestion.length === 0) {
+            container.innerHTML = '<p style="color:#999;">Noch keine Antworten...</p>';
+            return;
+        }
+        container.innerHTML = answersForCurrentQuestion.map(a => `
+          <div class="answer-item" id="answer-row-${a.id}">
+            <span><strong>${a.quiz_players?.player_name || 'Unbekannt'}:</strong> ${a.answer_text || '---'}</span>
+            <span style="font-weight:700;">${a.score_awarded != null ? '⭐' + a.score_awarded.toFixed(3) : '⏳'}</span>
+          </div>
+        `).join('');
+    }
+
+    function updateHostPlayerList() {
+        const container = document.getElementById('host-player-list');
+        const countEl = document.getElementById('host-player-count');
+        if (!container) return;
+        if (countEl) countEl.textContent = players.length;
+        container.innerHTML = players.map(p => `
+          <div class="player-chip">
+            ${p.player_name}
+            <span class="score">${p.total_score?.toFixed(1) || '0'}</span>
+          </div>
+        `).join('');
+    }
+
+    // ============================================================
+    // EXCEL UPLOAD & PARSING
+    // ============================================================
+    async function handleExcelUpload() {
+        const fileInput = document.getElementById('excel-file-input');
+        const statusEl = document.getElementById('excel-status');
+        const previewEl = document.getElementById('excel-preview');
+        const file = fileInput.files[0];
+        if (!file || !currentSessionId) return;
+
+        statusEl.textContent = '⏳ Lese Datei...';
+        try {
+            const data = await readExcelFile(file);
+            statusEl.textContent = `✅ ${data.length} Fragen erkannt. Speichere...`;
+            previewEl.textContent = data.slice(0, 3).map((r, i) => `${i+1}. ${r.Frage}`).join(' | ') + ' ...';
+
+            // Validierung
+            const requiredCols = ['Frage', 'Typ', 'Antwort'];
+            for (const row of data) {
+                for (const col of requiredCols) {
+                    if (!row[col]) throw new Error(`Spalte "${col}" fehlt in einer Zeile!`);
+                }
+            }
+
+            // Alte Fragen löschen
+            await supabase.from('quiz_questions').delete().eq('session_id', currentSessionId);
+
+            // Fragen einfügen
+            const questionsToInsert = data.map((row, index) => ({
+                session_id: currentSessionId,
+                text: row['Frage']?.toString().trim() || '',
+                type: row['Typ']?.toString().trim() || 'Freitext',
+                correct_answer: row['Antwort']?.toString().trim() || '',
+                options: row['Optionen']?.toString().trim() || null,
+                image_url: row['Bild-URL']?.toString().trim() || null,
+                time_limit: parseInt(row['Zeit (Sek.)']) || 30,
+                scoring_rule: row['Punktregel']?.toString().trim() || '{"exakt":1}',
+                strict_order: (row['Reihenfolge wichtig']?.toString().trim().toLowerCase() === 'ja'),
+                order_index: index,
+            }));
+
+            const { error } = await supabase.from('quiz_questions').insert(questionsToInsert);
+            if (error) throw error;
+
+            statusEl.textContent = `✅ ${data.length} Fragen gespeichert!`;
+            // Aktualisiere lokale Fragenliste
+            const { data: fresh } = await supabase
+                .from('quiz_questions')
+                .select('*')
+                .eq('session_id', currentSessionId)
+                .order('order_index', { ascending: true });
+            allQuestions = fresh || [];
+            // Zeige Question-Card
+            if (allQuestions.length > 0) {
+                document.getElementById('host-question-card').classList.remove('hidden');
+                document.getElementById('btn-start-question').style.display = 'inline-block';
+                currentQuestion = null;
+            }
+        } catch (err) {
+            statusEl.textContent = '❌ Fehler: ' + err.message;
+            console.error(err);
+        }
+    }
+
+    function readExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const workbook = XLSX.read(e.target.result, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+                    resolve(jsonData);
+                } catch (err) {
+                    reject(new Error('Excel-Datei konnte nicht gelesen werden.'));
+                }
+            };
+            reader.onerror = () => reject(new Error('Fehler beim Lesen der Datei.'));
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    // ============================================================
+    // HOST: FRAGE STARTEN, TIMER, AUSWERTEN
+    // ============================================================
+    document.addEventListener('click', async (e) => {
+        if (currentView !== 'host') return;
+        initAudio();
+
+        // Frage starten
+        if (e.target.id === 'btn-start-question') {
+            await startQuestion();
+        }
+        // Auswerten
+        if (e.target.id === 'btn-evaluate') {
+            await evaluateAnswers();
+        }
+        // Nächste Frage
+        if (e.target.id === 'btn-next-question') {
+            await nextQuestion();
+        }
+        // Manuelle Anpassung öffnen
+        if (e.target.id === 'btn-manual-score') {
+            toggleManualScore();
+        }
+        // Manuelle Anpassung anwenden
+        if (e.target.id === 'btn-apply-manual-score') {
+            await applyManualScore();
+        }
+        // Neues Quiz
+        if (e.target.id === 'btn-new-game') {
+            window.location.href = '?view=host';
+        }
+    });
+
+    async function startQuestion() {
+        if (!currentSessionId || allQuestions.length === 0) return;
+        // Hole aktuellen question_index aus DB
+        const { data: session } = await supabase
+            .from('quiz_sessions')
+            .select('current_question_index')
+            .eq('id', currentSessionId)
+            .single();
+        const qIndex = session?.current_question_index || 0;
+        if (qIndex >= allQuestions.length) {
+            showFinalRanking();
+            return;
+        }
+        currentQuestion = allQuestions[qIndex];
+        timeRemaining = currentQuestion.time_limit || 30;
+        answerSubmitted = false;
+        selectedMcOption = null;
+        answersForCurrentQuestion = [];
+
+        // Session current_question_index bleibt gleich (wurde schon gesetzt)
+        document.getElementById('host-question-card').classList.remove('hidden');
+        displayHostQuestion(currentQuestion);
+        document.getElementById('btn-start-question').style.display = 'none';
+        document.getElementById('btn-evaluate').classList.add('hidden');
+        document.getElementById('btn-next-question').classList.add('hidden');
+        document.getElementById('btn-manual-score').classList.add('hidden');
+        document.getElementById('host-answers-container').innerHTML =
+        '<p style="color:#999;">Warte auf Antworten...</p>';
+
+        // Timer starten
+        startHostTimer();
+    }
+
+    function displayHostQuestion(q) {
+        document.getElementById('host-question-text').textContent = q.text;
+        document.getElementById('host-question-type').textContent = q.type;
+        document.getElementById('host-question-time').textContent = q.time_limit || 30;
+        const imgEl = document.getElementById('host-question-image');
+        if (q.image_url) {
+            imgEl.src = q.image_url;
+            imgEl.style.display = 'block';
+        } else {
+            imgEl.style.display = 'none';
+        }
+        document.getElementById('host-timer').textContent = timeRemaining;
+        document.getElementById('host-timer').classList.remove('timer-warning', 'timer-danger');
+    }
+
+    function startHostTimer() {
+        clearInterval(timerInterval);
+        timeRemaining = currentQuestion?.time_limit || 30;
+        const timerEl = document.getElementById('host-timer');
+        timerEl.textContent = timeRemaining;
+        timerEl.classList.remove('timer-warning', 'timer-danger');
+
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            timerEl.textContent = Math.max(0, timeRemaining);
+            if (timeRemaining <= 5 && timeRemaining > 2) {
+                timerEl.classList.add('timer-warning');
+                timerEl.classList.remove('timer-danger');
+            } else if (timeRemaining <= 2) {
+                timerEl.classList.remove('timer-warning');
+                timerEl.classList.add('timer-danger');
+            }
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                timerEl.textContent = '0';
+                timerEl.classList.add('timer-danger');
+                // Automatisch Auswerten-Button zeigen
+                document.getElementById('btn-evaluate').classList.remove('hidden');
+                document.getElementById('btn-manual-score').classList.remove('hidden');
+            }
+        }, 1000);
+    }
+
+    async function evaluateAnswers() {
+        if (!currentQuestion || !currentSessionId) return;
+        clearInterval(timerInterval);
+        document.getElementById('host-timer').textContent = '0';
+        document.getElementById('host-timer').classList.add('timer-danger');
+
+        const btnEval = document.getElementById('btn-evaluate');
+        btnEval.disabled = true;
+        btnEval.textContent = '⏳ Werte aus...';
+
+        await loadAnswersForCurrentQuestion();
+        const scoringRule = parseScoringRule(currentQuestion.scoring_rule);
+        const correctAnswer = currentQuestion.correct_answer?.trim() || '';
+        const qType = currentQuestion.type;
+
+        // Berechne Punkte je nach Typ
+        const updates = [];
+        for (const answer of answersForCurrentQuestion) {
+            let score = 0;
+            let isCorrect = false;
+            const playerAnswer = (answer.answer_text || '').trim();
+
+            if (qType === 'Schätzung') {
+                // Differenz berechnen – aber erstmal sammeln wir alle Differenzen
+                // Punkte werden relativ vergeben
+                score = null; // Platzhalter – wird unten berechnet
+            } else if (qType === 'Aufzählung') {
+                score = evaluateAufzaehlung(playerAnswer, correctAnswer, currentQuestion.strict_order, scoringRule);
+                isCorrect = score > 0;
+            } else {
+                // Freitext, MultipleChoice, Bild – exakter Vergleich
+                const normalizedPlayer = playerAnswer.toLowerCase().replace(/\s+/g, '');
+                const normalizedCorrect = correctAnswer.toLowerCase().replace(/\s+/g, '');
+                if (normalizedPlayer === normalizedCorrect) {
+                    score = scoringRule.exakt || 1;
+                    isCorrect = true;
+                } else {
+                    score = 0;
+                    isCorrect = false;
+                }
+            }
+            updates.push({ answer, score, isCorrect });
+        }
+
+        // Spezialfall Schätzung: Rangfolge nach Differenz
+        if (qType === 'Schätzung') {
+            const correctNum = parseFloat(correctAnswer.replace(',', '.'));
+            const diffs = updates.map(u => ({
+                ...u,
+                diff: Math.abs(parseFloat((u.answer.answer_text || '0').replace(',', '.')) - correctNum),
+            }));
+            diffs.sort((a, b) => a.diff - b.diff);
+
+            // Ränge zuweisen
+            let currentRank = 0;
+            let lastDiff = -1;
+            const rankCounts = {};
+            for (const item of diffs) {
+                if (item.diff !== lastDiff) {
+                    currentRank++;
+                }
+                item.rank = currentRank;
+                lastDiff = item.diff;
+                rankCounts[currentRank] = (rankCounts[currentRank] || 0) + 1;
+            }
+            // Punkte aus Scoring-Rule zuweisen
+            for (const item of diffs) {
+                const rankKey = String(item.rank);
+                let pts = scoringRule[rankKey] || 0;
+                item.score = pts;
+                item.isCorrect = pts > 0;
+            }
+            // Zurückschreiben
+            for (const item of diffs) {
+                const orig = updates.find(u => u.answer.id === item.answer.id);
+                if (orig) {
+                    orig.score = item.score;
+                    orig.isCorrect = item.isCorrect;
+                }
+            }
+        }
+
+        // In DB speichern & total_score der Spieler updaten
+        for (const u of updates) {
+            if (u.score === null) u.score = 0;
+            await supabase
+                .from('quiz_answers')
+                .update({
+                    score_awarded: u.score,
+                    is_correct: u.isCorrect,
+                })
+                .eq('id', u.answer.id);
+
+            // total_score des Spielers neu berechnen
+            const { data: allPlayerAnswers } = await supabase
+                .from('quiz_answers')
+                .select('score_awarded')
+                .eq('player_id', u.answer.player_id);
+            const totalScore = (allPlayerAnswers || []).reduce((sum, a) => sum + (a.score_awarded || 0), 0);
+            await supabase
+                .from('quiz_players')
+                .update({ total_score: totalScore })
+                .eq('id', u.answer.player_id);
+        }
+
+        // Spielerliste neu laden
+        const { data: freshPlayers } = await supabase
+            .from('quiz_players')
+            .select('*')
+            .eq('session_id', currentSessionId);
+        players = freshPlayers || [];
+        updateHostPlayerList();
+        await loadAnswersForCurrentQuestion();
+        renderHostAnswers();
+
+        // Glow-Effekt für richtige Antworten
+        updates.filter(u => u.isCorrect).forEach(u => {
+            const row = document.getElementById('answer-row-' + u.answer.id);
+            if (row) row.classList.add('correct-glow');
+        });
+
+        btnEval.disabled = false;
+        btnEval.textContent = '📊 Auswerten';
+        btnEval.classList.add('hidden');
+        document.getElementById('btn-next-question').classList.remove('hidden');
+    }
+
+    function evaluateAufzaehlung(playerAnswer, correctAnswer, strictOrder, scoringRule) {
+        const playerItems = playerAnswer.split(';').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const correctItems = correctAnswer.split(';').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const proPosition = scoringRule.proPosition || (1 / correctItems.length);
+
+        if (strictOrder) {
+            let correctCount = 0;
+            for (let i = 0; i < Math.min(playerItems.length, correctItems.length); i++) {
+                if (playerItems[i] === correctItems[i]) correctCount++;
+            }
+            return correctCount * proPosition;
+        } else {
+            const uniquePlayer = [...new Set(playerItems)];
+            const uniqueCorrect = [...new Set(correctItems)];
+            let correctCount = 0;
+            for (const item of uniquePlayer) {
+                if (uniqueCorrect.includes(item)) correctCount++;
+            }
+            return correctCount * proPosition;
+        }
+    }
+
+    function parseScoringRule(ruleStr) {
+        try {
+            return JSON.parse(ruleStr);
+        } catch {
+            return { exakt: 1 };
+        }
+    }
+
+    async function nextQuestion() {
+        if (!currentSessionId) return;
+        // Aktuellen Index aus DB holen und erhöhen
+        const { data: session } = await supabase
+            .from('quiz_sessions')
+            .select('current_question_index')
+            .eq('id', currentSessionId)
+            .single();
+        const newIndex = (session?.current_question_index || 0) + 1;
+        if (newIndex >= allQuestions.length) {
+            await supabase
+                .from('quiz_sessions')
+                .update({ current_question_index: newIndex })
+                .eq('id', currentSessionId);
+            showFinalRanking();
+            return;
+        }
+        await supabase
+            .from('quiz_sessions')
+            .update({ current_question_index: newIndex })
+            .eq('id', currentSessionId);
+        currentQuestion = allQuestions[newIndex];
+        timeRemaining = currentQuestion.time_limit || 30;
+        answerSubmitted = false;
+        selectedMcOption = null;
+        answersForCurrentQuestion = [];
+        document.getElementById('host-question-card').classList.remove('hidden');
+        displayHostQuestion(currentQuestion);
+        document.getElementById('btn-start-question').style.display = 'none';
+        document.getElementById('btn-evaluate').classList.add('hidden');
+        document.getElementById('btn-next-question').classList.add('hidden');
+        document.getElementById('btn-manual-score').classList.add('hidden');
+        document.getElementById('host-answers-container').innerHTML =
+            '<p style="color:#999;">Warte auf Antworten...</p>';
+        startHostTimer();
+    }
+
+    function showFinalRanking() {
+        document.getElementById('host-question-card').classList.add('hidden');
+        document.getElementById('host-game-card').classList.add('hidden');
+        document.getElementById('host-excel-card').classList.add('hidden');
+        const finalCard = document.getElementById('host-final-card');
+        finalCard.classList.remove('hidden');
+        const sorted = [...players].sort((a, b) => (b.total_score || 0) - (a.total_score || 0));
+        const rankingHtml = sorted.map((p, i) => {
+            let badgeClass = '';
+            if (i === 0) badgeClass = 'rank-1';
+            else if (i === 1) badgeClass = 'rank-2';
+            else if (i === 2) badgeClass = 'rank-3';
+            return `
+            <tr>
+              <td><span class="rank-badge ${badgeClass}">${i+1}</span></td>
+              <td>${p.player_name}</td>
+              <td><strong>${(p.total_score || 0).toFixed(3)}</strong></td>
+            </tr>`;
+        }).join('');
+        document.getElementById('host-final-ranking').innerHTML = `
+          <table class="ranking-table">
+            <thead><tr><th>#</th><th>Spieler</th><th>Punkte</th></tr></thead>
+            <tbody>${rankingHtml}</tbody>
+          </table>`;
+    }
+
+    function toggleManualScore() {
+        const area = document.getElementById('host-manual-score-area');
+        const select = document.getElementById('manual-player-select');
+        area.classList.toggle('hidden');
+        if (!area.classList.contains('hidden')) {
+            select.innerHTML = answersForCurrentQuestion.map(a =>
+                `<option value="${a.id}">${a.quiz_players?.player_name || 'Unbekannt'} – aktuelle Antwort: ${a.answer_text} (${a.score_awarded != null ? a.score_awarded.toFixed(3) : '0'})</option>`
+            ).join('');
+        }
+    }
+
+    async function applyManualScore() {
+        const answerId = document.getElementById('manual-player-select').value;
+        const newScore = parseFloat(document.getElementById('manual-score-input').value);
+        if (isNaN(newScore) || !answerId) {
+            alert('Bitte Spieler und gültige Punktzahl auswählen.');
+            return;
+        }
+        const answer = answersForCurrentQuestion.find(a => a.id == answerId);
+        if (!answer) return;
+        await supabase
+            .from('quiz_answers')
+            .update({ score_awarded: newScore })
+            .eq('id', answerId);
+        // total_score neu berechnen
+        const { data: allPlayerAnswers } = await supabase
+            .from('quiz_answers')
+            .select('score_awarded')
+            .eq('player_id', answer.player_id);
+        const totalScore = (allPlayerAnswers || []).reduce((sum, a) => sum + (a.score_awarded || 0), 0);
+        await supabase
+            .from('quiz_players')
+            .update({ total_score: totalScore })
+            .eq('id', answer.player_id);
+        // Refresh
+        const { data: freshPlayers } = await supabase
+            .from('quiz_players')
+            .select('*')
+            .eq('session_id', currentSessionId);
+        players = freshPlayers || [];
+        updateHostPlayerList();
+        await loadAnswersForCurrentQuestion();
+        renderHostAnswers();
+        document.getElementById('host-manual-score-area').classList.add('hidden');
+        alert('Punktzahl manuell aktualisiert! ✅');
+    }
+
+    // ============================================================
+    // SPIELER-VIEW RENDERING
+    // ============================================================
+    function renderPlayerJoinView() {
+        return `
+          <div class="card" id="player-join-card">
+            <div class="card-header"><span class="emoji">🎮</span> Quiz beitreten</div>
+            <p>Session-ID: <strong>${currentSessionId}</strong></p>
+            <input type="text" id="player-name-input" placeholder="Dein Name" />
+            <button class="btn btn-green btn-lg" id="btn-join-session" style="margin-top:12px;width:100%;">🚀 Beitreten</button>
+            <div id="player-join-error" style="color:var(--red);margin-top:8px;font-weight:600;"></div>
+          </div>
+
+          <div class="card hidden" id="player-game-card">
+            <div class="card-header"><span class="emoji">❓</span> Frage</div>
+            <div id="player-question-display">
+              <h2 id="player-question-text"></h2>
+              <img id="player-question-image" src="" alt="Bild" style="max-width:100%;max-height:250px;border-radius:12px;display:none;" />
+              <p style="font-size:0.85rem;color:#666;">Typ: <span id="player-question-type"></span></p>
+            </div>
+            <div class="timer-display" id="player-timer" style="margin:12px auto;">--</div>
+            <div id="player-answer-area">
+              <!-- Dynamisch: Eingabefeld oder MC-Buttons -->
+            </div>
+            <button class="btn btn-purple btn-lg" id="btn-submit-answer" style="width:100%;margin-top:12px;">📨 Antwort absenden</button>
+            <div id="player-answer-confirmation" class="hidden" style="text-align:center;color:var(--green);font-weight:700;margin-top:8px;">✅ Antwort gespeichert!</div>
+          </div>
+
+          <div class="card hidden" id="player-ranking-card">
+            <div class="card-header"><span class="emoji">🏆</span> Ranking</div>
+            <div id="player-ranking-table"></div>
+            <p style="text-align:center;margin-top:8px;font-weight:700;">Deine Punkte: <span id="player-own-score">0</span></p>
+          </div>
+
+          <div class="card hidden" id="player-waiting-card">
+            <p style="text-align:center;">⏳ Warte auf die nächste Frage...</p>
+            <div style="text-align:center;"><span class="spinner"></span></div>
+          </div>
+        `;
+    }
+
+    async function setupPlayerJoin() {
+        const btnJoin = document.getElementById('btn-join-session');
+        const nameInput = document.getElementById('player-name-input');
+
+        btnJoin.addEventListener('click', async () => {
+            const name = nameInput.value.trim();
+            if (!name) {
+                document.getElementById('player-join-error').textContent = 'Bitte einen Namen eingeben!';
+                return;
+            }
+            initAudio();
+            btnJoin.disabled = true;
+            btnJoin.textContent = '⏳ Tritt bei...';
+            try {
+                // Prüfen, ob Session existiert
+                const { data: session, error: sessionErr } = await supabase
+                    .from('quiz_sessions')
+                    .select('*')
+                    .eq('id', currentSessionId)
+                    .single();
+                if (sessionErr || !session) throw new Error('Session nicht gefunden!');
+                if (!session.active) throw new Error('Session ist nicht mehr aktiv.');
+
+                // Spieler einfügen
+                const { data: player, error: playerErr } = await supabase
+                    .from('quiz_players')
+                    .insert({
+                        session_id: currentSessionId,
+                        player_name: name,
+                        total_score: 0,
+                    })
+                    .select()
+                    .single();
+                if (playerErr) throw playerErr;
+                currentPlayerId = player.id;
+                currentPlayerName = name;
+                document.getElementById('player-join-card').classList.add('hidden');
+                document.getElementById('player-game-card').classList.remove('hidden');
+                document.getElementById('player-ranking-card').classList.remove('hidden');
+                // Realtime für Session-Änderungen abonnieren
+                subscribePlayerRealtime(session);
+                // Aktuelle Frage laden
+                await loadPlayerCurrentQuestion(session);
+            } catch (err) {
+                document.getElementById('player-join-error').textContent = 'Fehler: ' + err.message;
+                console.error(err);
+            }
+            btnJoin.disabled = false;
+            btnJoin.textContent = '🚀 Beitreten';
+        });
+
+        // Antwort absenden
+        document.addEventListener('click', async (e) => {
+            if (currentView !== 'join') return;
+            if (e.target.id === 'btn-submit-answer') {
+                await submitPlayerAnswer();
+            }
+            // MC-Option auswählen
+            if (e.target.classList.contains('option-btn') && !answerSubmitted) {
+                document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+                e.target.classList.add('selected');
+                selectedMcOption = e.target.dataset.value;
+            }
+        });
+
+        // Falls bereits Spieler-ID in localStorage gespeichert? (optional, für Wiedererkennung)
+    }
+
+    function subscribePlayerRealtime(session) {
+        // Auf Session-Änderungen hören (current_question_index)
+        supabase
+            .channel('player-session-' + currentSessionId)
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'quiz_sessions',
+                filter: `id=eq.${currentSessionId}`,
+            }, async (payload) => {
+                const newSession = payload.new;
+                if (newSession.current_question_index >= 0) {
+                    await loadPlayerCurrentQuestion(newSession);
+                }
+            })
+            .subscribe();
+
+        // Auf eigene Antwort-Updates hören (Score)
+        if (currentPlayerId) {
+            supabase
+                .channel('player-answers-' + currentPlayerId)
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'quiz_answers',
+                    filter: `player_id=eq.${currentPlayerId}`,
+                }, async () => {
+                    await updatePlayerRanking();
+                })
+                .subscribe();
+        }
+
+        // Auf Spielerliste-Updates für Ranking
+        supabase
+            .channel('player-ranking-' + currentSessionId)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'quiz_players',
+                filter: `session_id=eq.${currentSessionId}`,
+            }, async () => {
+                await updatePlayerRanking();
+            })
+            .subscribe();
+    }
+
+    async function loadPlayerCurrentQuestion(session) {
+        const qIndex = session.current_question_index || 0;
+        const { data: questions } = await supabase
+            .from('quiz_questions')
+            .select('*')
+            .eq('session_id', currentSessionId)
+            .order('order_index', { ascending: true });
+
+        if (!questions || qIndex >= questions.length) {
+            // Quiz vorbei
+            document.getElementById('player-game-card').classList.add('hidden');
+            document.getElementById('player-waiting-card').classList.add('hidden');
+            document.getElementById('player-ranking-card').classList.remove('hidden');
+            await updatePlayerRanking();
+            return;
+        }
+
+        currentQuestion = questions[qIndex];
+        answerSubmitted = false;
+        selectedMcOption = null;
+        timeRemaining = currentQuestion.time_limit || 30;
+
+        document.getElementById('player-game-card').classList.remove('hidden');
+        document.getElementById('player-waiting-card').classList.add('hidden');
+        document.getElementById('player-answer-confirmation').classList.add('hidden');
+        document.getElementById('player-question-text').textContent = currentQuestion.text;
+        document.getElementById('player-question-type').textContent = currentQuestion.type;
+        const imgEl = document.getElementById('player-question-image');
+        if (currentQuestion.image_url) {
+            imgEl.src = currentQuestion.image_url;
+            imgEl.style.display = 'block';
+        } else {
+            imgEl.style.display = 'none';
+        }
+        document.getElementById('player-timer').textContent = timeRemaining;
+        document.getElementById('player-timer').classList.remove('timer-warning', 'timer-danger');
+
+        // Prüfen, ob Spieler bereits geantwortet hat
+        if (currentPlayerId && currentQuestion) {
+            const { data: existing } = await supabase
+                .from('quiz_answers')
+                .select('*')
+                .eq('player_id', currentPlayerId)
+                .eq('question_id', currentQuestion.id)
+                .maybeSingle();
+            if (existing) {
+                answerSubmitted = true;
+                document.getElementById('player-answer-confirmation').classList.remove('hidden');
+                document.getElementById('btn-submit-answer').disabled = true;
+            }
+        }
+
+        // Antwort-Bereich rendern
+        renderPlayerAnswerArea(currentQuestion);
+        document.getElementById('btn-submit-answer').disabled = answerSubmitted;
+        if (!answerSubmitted) {
+            document.getElementById('player-answer-confirmation').classList.add('hidden');
+        }
+
+        // Timer starten
+        startPlayerTimer();
+    }
+
+    function renderPlayerAnswerArea(question) {
+        const area = document.getElementById('player-answer-area');
+        if (!area) return;
+        if (question.type === 'MultipleChoice' && question.options) {
+            const options = question.options.split(';').map(o => o.trim()).filter(Boolean);
+            area.innerHTML = options.map(opt => {
+                const displayText = opt.includes(':') ? opt : opt;
+                const value = opt.includes(':') ? opt.split(':')[1]?.trim() || opt : opt;
+                return `<button class="option-btn" data-value="${escapeHtml(value)}">${escapeHtml(displayText)}</button>`;
+            }).join('');
+            if (answerSubmitted && selectedMcOption) {
+                const btns = area.querySelectorAll('.option-btn');
+                btns.forEach(b => {
+                    if (b.dataset.value === selectedMcOption) b.classList.add('selected');
+                });
+            }
+        } else if (question.type === 'Aufzählung') {
+            area.innerHTML =
+                `<textarea id="player-text-answer" placeholder="Begriffe mit ; trennen (z.B. Rot;Grün;Blau)">${answerSubmitted && selectedMcOption ? escapeHtml(selectedMcOption) : ''}</textarea>`;
+        } else {
+            area.innerHTML =
+                `<input type="text" id="player-text-answer" placeholder="Deine Antwort..." value="${answerSubmitted && selectedMcOption ? escapeHtml(selectedMcOption) : ''}" />`;
+        }
+        if (answerSubmitted) {
+            const input = document.getElementById('player-text-answer');
+            if (input) input.disabled = true;
+            const btns = area.querySelectorAll('.option-btn');
+            btns.forEach(b => b.style.pointerEvents = 'none');
+        }
+    }
+
+    function startPlayerTimer() {
+        clearInterval(timerInterval);
+        timeRemaining = currentQuestion?.time_limit || 30;
+        const timerEl = document.getElementById('player-timer');
+        if (!timerEl) return;
+        timerEl.textContent = timeRemaining;
+        timerEl.classList.remove('timer-warning', 'timer-danger');
+
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            timerEl.textContent = Math.max(0, timeRemaining);
+            if (timeRemaining <= 5 && timeRemaining > 2) {
+                timerEl.classList.add('timer-warning');
+                timerEl.classList.remove('timer-danger');
+            } else if (timeRemaining <= 2) {
+                timerEl.classList.remove('timer-warning');
+                timerEl.classList.add('timer-danger');
+            }
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                timerEl.textContent = '0';
+                timerEl.classList.add('timer-danger');
+                document.getElementById('btn-submit-answer').disabled = true;
+            }
+        }, 1000);
+    }
+
+    async function submitPlayerAnswer() {
+        if (answerSubmitted || !currentPlayerId || !currentQuestion || timeRemaining <= 0) return;
+        let answerText = '';
+        if (currentQuestion.type === 'MultipleChoice' && currentQuestion.options) {
+            if (!selectedMcOption) {
+                alert('Bitte eine Option auswählen!');
+                return;
+            }
+            answerText = selectedMcOption;
+        } else {
+            const input = document.getElementById('player-text-answer');
+            if (!input || !input.value.trim()) {
+                alert('Bitte eine Antwort eingeben!');
+                return;
+            }
+            answerText = input.value.trim();
+        }
+        answerSubmitted = true;
+        selectedMcOption = answerText;
+        document.getElementById('btn-submit-answer').disabled = true;
+        document.getElementById('player-answer-confirmation').classList.remove('hidden');
+
+        // In DB speichern
+        const { error } = await supabase
+            .from('quiz_answers')
+            .insert({
+                player_id: currentPlayerId,
+                question_id: currentQuestion.id,
+                answer_text: answerText,
+                score_awarded: null,
+                is_correct: false,
+            });
+        if (error) {
+            console.error('Fehler beim Speichern der Antwort:', error);
+            answerSubmitted = false;
+            document.getElementById('btn-submit-answer').disabled = false;
+            document.getElementById('player-answer-confirmation').classList.add('hidden');
+            alert('Fehler beim Speichern. Bitte versuche es erneut.');
+        }
+        // Eingabefelder deaktivieren
+        const input = document.getElementById('player-text-answer');
+        if (input) input.disabled = true;
+        document.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'none');
+    }
+
+    async function updatePlayerRanking() {
+        if (!currentSessionId || !currentPlayerId) return;
+        const { data: allPlayers } = await supabase
+            .from('quiz_players')
+            .select('*')
+            .eq('session_id', currentSessionId)
+            .order('total_score', { ascending: false });
+        if (!allPlayers) return;
+        players = allPlayers;
+        const ownPlayer = allPlayers.find(p => p.id === currentPlayerId);
+        if (ownPlayer) {
+            document.getElementById('player-own-score').textContent = (ownPlayer.total_score || 0).toFixed(3);
+        }
+        const rankingHtml = allPlayers.map((p, i) => {
+            let badgeClass = '';
+            if (i === 0) badgeClass = 'rank-1';
+            else if (i === 1) badgeClass = 'rank-2';
+            else if (i === 2) badgeClass = 'rank-3';
+            const isMe = p.id === currentPlayerId;
+            return `
+            <tr style="${isMe ? 'background:#fffde4;font-weight:700;' : ''}">
+              <td><span class="rank-badge ${badgeClass}">${i+1}</span></td>
+              <td>${p.player_name} ${isMe ? '👈' : ''}</td>
+              <td><strong>${(p.total_score || 0).toFixed(3)}</strong></td>
+            </tr>`;
+        }).join('');
+        document.getElementById('player-ranking-table').innerHTML = `
+          <table class="ranking-table">
+            <thead><tr><th>#</th><th>Spieler</th><th>Punkte</th></tr></thead>
+            <tbody>${rankingHtml}</tbody>
+          </table>`;
+        document.getElementById('player-ranking-card').classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ============================================================
+    // APP START
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', initApp);
+
+    // Cleanup Timer bei Seitenwechsel
+    window.addEventListener('beforeunload', () => {
+        clearInterval(timerInterval);
+    });
+
+    console.log('🎉 Live-Quiz Party! – Script geladen.');
+    console.log('Supabase URL:', SUPABASE_URL);
+    console.log('Aktuelle View:', getUrlParams().view || 'landing');
+</script>
+</body>
+</html>
