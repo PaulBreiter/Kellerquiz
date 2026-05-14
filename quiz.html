@@ -35,8 +35,8 @@
         input[type="text"], input[type="number"], input[type="url"], textarea, select { width: 100%; padding: 12px 16px; font-family: inherit; font-size: 1rem; border: 3px solid var(--border); border-radius: 40px; box-shadow: 3px 3px 0 var(--shadow); outline: none; transition: box-shadow 0.15s; background: #fff; color: var(--text); }
         input:focus, textarea:focus, select:focus { box-shadow: 5px 5px 0 var(--purple); }
         textarea { border-radius: 18px; min-height: 80px; resize: vertical; }
-        #qrcode-container { display: flex; justify-content: center; padding: 16px; background: #fff; border-radius: 16px; border: 2px dashed var(--border); }
-        #qrcode-container canvas, #qrcode-container img { max-width: 180px; height: auto; }
+        .fixed-qr { position: fixed; top: 16px; right: 16px; z-index: 999; background: #fff; border: 3px solid var(--border); border-radius: 12px; padding: 8px; box-shadow: 4px 4px 0 var(--shadow); text-align: center; font-size: 0.75rem; }
+        .fixed-qr canvas { width: 80px !important; height: 80px !important; }
         .player-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .player-chip { background: var(--yellow); border: 3px solid var(--border); border-radius: 30px; padding: 8px 16px; font-weight: 600; box-shadow: 3px 3px 0 var(--shadow); display: flex; align-items: center; gap: 6px; }
         .player-chip .score { background: var(--purple); color: #fff; border-radius: 20px; padding: 2px 10px; font-size: 0.85rem; }
@@ -49,8 +49,6 @@
         .rank-1 { background: #ffd700; color: #000; }
         .rank-2 { background: #c0c0c0; color: #000; }
         .rank-3 { background: #cd7f32; color: #fff; }
-        /* Timer ausgeblendet */
-        .timer-display { display: none; }
         .option-btn { display: block; width: 100%; padding: 14px 18px; margin: 8px 0; font-family: inherit; font-size: 1rem; font-weight: 500; border: 3px solid var(--border); border-radius: 30px; cursor: pointer; background: #fff; box-shadow: 4px 4px 0 var(--shadow); text-align: left; transition: all 0.1s; touch-action: manipulation; }
         .option-btn:hover { background: #f0ecff; }
         .option-btn.selected { background: var(--purple); color: #fff; border-color: var(--purple); box-shadow: 4px 4px 0 #4a3db5; }
@@ -61,13 +59,14 @@
         .hidden { display: none !important; }
         .spinner { display: inline-block; width: 28px; height: 28px; border: 4px solid var(--border); border-top: 4px solid var(--purple); border-radius: 50%; animation: spin 0.7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 600px) { .card { padding: 16px 12px; } .btn { padding: 10px 16px; font-size: 0.9rem; min-height: 44px; } .player-chip { padding: 6px 12px; font-size: 0.85rem; } }
+        @media (max-width: 600px) { .card { padding: 16px 12px; } .btn { padding: 10px 16px; font-size: 0.9rem; min-height: 44px; } .player-chip { padding: 6px 12px; font-size: 0.85rem; } .fixed-qr { top: 8px; right: 8px; } .fixed-qr canvas { width: 60px !important; height: 60px !important; } }
         .glow-green { animation: glowBg 0.8s ease-out; }
         @keyframes glowBg { 0% { background: #2ecc71; color: #fff; } 100% { background: #fff; color: inherit; } }
     </style>
 </head>
 <body>
     <div class="container" id="app-container"></div>
+    <div id="fixed-qr-container" class="fixed-qr hidden"></div>
 
     <script>
         (async function() {
@@ -79,6 +78,7 @@
             let currentQuestion = null, allQuestions = [], players = [], answersForCurrentQuestion = [];
             let answerSubmitted = false, selectedMcOption = null;
             let audioCtx = null;
+            let joinUrl = ''; // für QR-Code persistent
 
             function initAudio() { if (!audioCtx) audioCtx = new(window.AudioContext || window.webkitAudioContext)(); }
             function playPling() { if (!audioCtx) return; try { const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); osc.connect(gain); gain.connect(audioCtx.destination); osc.type = 'sine'; osc.frequency.setValueAtTime(880, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.08); gain.gain.setValueAtTime(0.3, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2); osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime + 0.2); } catch(e) {} }
@@ -107,7 +107,10 @@
                     <button class="btn btn-red btn-lg hidden" id="btn-next-question">⏭️ Nächste Frage</button>
                     <button class="btn btn-yellow btn-sm hidden" id="btn-manual-score">✏️ Punkte manuell anpassen</button>
                   </div>
-                  <div id="host-answers-list" style="margin-top:10px;"><p style="font-weight:600;">Eingegangene Antworten:</p><div id="host-answers-container"></div></div>
+                  <div id="host-answers-list" style="margin-top:10px;">
+                    <p style="font-weight:600;">Eingegangene Antworten (<span id="host-answer-count">0</span>/<span id="host-player-count">0</span>):</p>
+                    <div id="host-answers-container"></div>
+                  </div>
                   <div id="host-manual-score-area" class="hidden" style="margin-top:10px;padding:12px;border:2px dashed var(--border);border-radius:12px;">
                     <p style="font-weight:600;">Manuelle Punkteanpassung:</p><select id="manual-player-select" style="margin-bottom:8px;"></select>
                     <input type="number" id="manual-score-input" placeholder="Neue Punktzahl" step="0.001" style="margin-bottom:8px;"/>
@@ -115,11 +118,23 @@
                   </div>
                   <hr style="margin:16px 0;border:2px dashed var(--border);">
                   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <span style="font-weight:700;">👥 Spieler (<span id="host-player-count">0</span>):</span>
+                    <span style="font-weight:700;">👥 Spieler:</span>
                     <div class="player-grid" id="host-player-list"></div>
                   </div>
                 </div>
                 <div class="card hidden" id="host-final-card"><div class="card-header"><span class="emoji">🏆</span> Endwertung</div><div id="host-final-ranking"></div><button class="btn btn-purple btn-lg" id="btn-new-game" style="margin-top:12px;">🔄 Neues Quiz</button></div>`;
+            }
+
+            function updateFixedQR() {
+                const qrDiv = document.getElementById('fixed-qr-container');
+                if (joinUrl && currentSessionId && allQuestions.length > 0) {
+                    qrDiv.classList.remove('hidden');
+                    qrDiv.innerHTML = `<div style="font-size:0.7rem;margin-bottom:2px;">📲 Beitreten</div>`;
+                    new QRCode(qrDiv, { text: joinUrl, width: 80, height: 80, colorDark: '#2d3436', colorLight: '#ffffff' });
+                    // Link auch als Text darunter? Eher nicht, QR reicht.
+                } else {
+                    qrDiv.classList.add('hidden');
+                }
             }
 
             async function setupHost() {
@@ -136,11 +151,11 @@
                         const { data, error } = await supabase.from('quiz_sessions').insert({ name: name, active: true, current_question_index: 0 }).select().single();
                         if (error) throw error;
                         currentSessionId = data.id;
+                        joinUrl = `${window.location.origin}${window.location.pathname}?view=join&session=${data.id}`;
                         document.getElementById('host-session-creator').classList.add('hidden');
                         document.getElementById('host-session-info').classList.remove('hidden');
                         document.getElementById('host-session-name-display').textContent = data.name;
                         document.getElementById('host-session-id-display').textContent = data.id;
-                        const joinUrl = `${window.location.origin}${window.location.pathname}?view=join&session=${data.id}`;
                         document.getElementById('host-join-link').textContent = joinUrl;
                         const qrContainer = document.getElementById('qrcode-container');
                         qrContainer.innerHTML = '';
@@ -161,11 +176,11 @@
                 if (currentSessionId) {
                     const { data: existingSession } = await supabase.from('quiz_sessions').select('*').eq('id', currentSessionId).single();
                     if (existingSession) {
+                        joinUrl = `${window.location.origin}${window.location.pathname}?view=join&session=${existingSession.id}`;
                         document.getElementById('host-session-creator').classList.add('hidden');
                         document.getElementById('host-session-info').classList.remove('hidden');
                         document.getElementById('host-session-name-display').textContent = existingSession.name;
                         document.getElementById('host-session-id-display').textContent = existingSession.id;
-                        const joinUrl = `${window.location.origin}${window.location.pathname}?view=join&session=${existingSession.id}`;
                         document.getElementById('host-join-link').textContent = joinUrl;
                         const qrContainer = document.getElementById('qrcode-container');
                         qrContainer.innerHTML = '';
@@ -188,6 +203,7 @@
                 if (allQuestions.length > 0) {
                     document.getElementById('host-setup-card').classList.add('hidden');
                     document.getElementById('host-excel-card').classList.add('hidden');
+                    updateFixedQR();
                 }
                 if (session.current_question_index >= 0 && allQuestions.length > 0) {
                     const qIndex = Math.min(session.current_question_index, allQuestions.length - 1);
@@ -219,6 +235,8 @@
                 supabase.channel('host-players-' + sessionId).on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_players', filter: `session_id=eq.${sessionId}` }, async () => {
                     const { data } = await supabase.from('quiz_players').select('*').eq('session_id', sessionId);
                     players = data || []; updateHostPlayerList(); playPling();
+                    // Aktualisiere auch die Antwortenzahl
+                    if (currentQuestion) await loadAnswersForCurrentQuestion();
                 }).subscribe();
                 supabase.channel('host-answers-' + sessionId).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_answers', filter: currentQuestion ? `question_id=eq.${currentQuestion.id}` : undefined }, async (payload) => {
                     if (currentQuestion && payload.new.question_id === currentQuestion.id) { await loadAnswersForCurrentQuestion(); playPling(); }
@@ -228,7 +246,12 @@
             async function loadAnswersForCurrentQuestion() {
                 if (!currentQuestion) return;
                 const { data } = await supabase.from('quiz_answers').select('*, quiz_players!inner(player_name)').eq('question_id', currentQuestion.id);
-                answersForCurrentQuestion = data || []; renderHostAnswers(); updateHostButtons();
+                answersForCurrentQuestion = data || [];
+                renderHostAnswers();
+                updateHostButtons();
+                // Update Zähler
+                const countEl = document.getElementById('host-answer-count');
+                if (countEl) countEl.textContent = answersForCurrentQuestion.length;
             }
 
             function renderHostAnswers() {
@@ -267,7 +290,7 @@
                         correct_answer: row['Antwort']?.toString().trim() || '',
                         options: row['Optionen']?.toString().trim() || null,
                         image_url: row['Bild-URL']?.toString().trim() || null,
-                        time_limit: parseInt(row['Zeit (Sek.)']) || 0,
+                        time_limit: 0,
                         scoring_rule: row['Punktregel']?.toString().trim() || '{"exakt":1}',
                         strict_order: (row['Reihenfolge wichtig']?.toString().trim().toLowerCase() === 'ja'),
                         order_index: index
@@ -283,6 +306,7 @@
                         document.getElementById('host-question-card').classList.remove('hidden');
                         document.getElementById('btn-start-question').style.display = 'inline-block';
                         currentQuestion = null;
+                        updateFixedQR();
                     }
                 } catch(err) { statusEl.textContent = '❌ Fehler: ' + err.message; console.error(err); }
             }
@@ -321,6 +345,7 @@
                 document.getElementById('btn-next-question').classList.add('hidden');
                 document.getElementById('btn-manual-score').classList.add('hidden');
                 document.getElementById('host-answers-container').innerHTML = '<p style="color:#999;">Warte auf Antworten...</p>';
+                document.getElementById('host-answer-count').textContent = '0';
             }
 
             function displayHostQuestion(q) {
@@ -395,6 +420,7 @@
                 displayHostQuestion(currentQuestion);
                 document.getElementById('btn-start-question').style.display = 'none'; document.getElementById('btn-evaluate').classList.add('hidden'); document.getElementById('btn-next-question').classList.add('hidden'); document.getElementById('btn-manual-score').classList.add('hidden');
                 document.getElementById('host-answers-container').innerHTML = '<p style="color:#999;">Warte auf Antworten...</p>';
+                document.getElementById('host-answer-count').textContent = '0';
             }
 
             function showFinalRanking() {
@@ -408,11 +434,32 @@
                     return `<tr><td><span class="rank-badge ${bc}">${i+1}</span></td><td>${p.player_name}</td><td><strong>${(p.total_score||0).toFixed(3)}</strong></td></tr>`;
                 }).join('');
                 document.getElementById('host-final-ranking').innerHTML = `<table class="ranking-table"><thead><tr><th>#</th><th>Spieler</th><th>Punkte</th></tr></thead><tbody>${rankingHtml}</tbody></table>`;
+                document.getElementById('fixed-qr-container').classList.add('hidden');
             }
 
-            function toggleManualScore() { /* unverändert */ }
-            async function applyManualScore() { /* unverändert */ }
+            function toggleManualScore() {
+                const area = document.getElementById('host-manual-score-area');
+                const select = document.getElementById('manual-player-select');
+                area.classList.toggle('hidden');
+                if (!area.classList.contains('hidden')) select.innerHTML = answersForCurrentQuestion.map(a => `<option value="${a.id}">${a.quiz_players?.player_name || 'Unbekannt'} – aktuelle Antwort: ${a.answer_text} (${a.score_awarded != null ? a.score_awarded.toFixed(3) : '0'})</option>`).join('');
+            }
 
+            async function applyManualScore() {
+                const answerId = document.getElementById('manual-player-select').value;
+                const newScore = parseFloat(document.getElementById('manual-score-input').value);
+                if (isNaN(newScore) || !answerId) { alert('Bitte Spieler und gültige Punktzahl auswählen.'); return; }
+                const answer = answersForCurrentQuestion.find(a => a.id == answerId); if (!answer) return;
+                await supabase.from('quiz_answers').update({ score_awarded: newScore }).eq('id', answerId);
+                const { data: allPlayerAnswers } = await supabase.from('quiz_answers').select('score_awarded').eq('player_id', answer.player_id);
+                const totalScore = (allPlayerAnswers || []).reduce((sum, a) => sum + (a.score_awarded || 0), 0);
+                await supabase.from('quiz_players').update({ total_score: totalScore }).eq('id', answer.player_id);
+                const { data: freshPlayers } = await supabase.from('quiz_players').select('*').eq('session_id', currentSessionId);
+                players = freshPlayers || []; updateHostPlayerList(); await loadAnswersForCurrentQuestion(); renderHostAnswers();
+                document.getElementById('host-manual-score-area').classList.add('hidden');
+                alert('Punktzahl manuell aktualisiert! ✅');
+            }
+
+            /* ========================= PLAYER FUNCTIONS ========================= */
             function renderPlayerJoinView() {
                 return `
                 <div class="card" id="player-join-card"><div class="card-header"><span class="emoji">🎮</span> Quiz beitreten</div><p>Session-ID: <strong>${currentSessionId}</strong></p><input type="text" id="player-name-input" placeholder="Dein Name"/><button class="btn btn-green btn-lg" id="btn-join-session" style="margin-top:12px;width:100%;">🚀 Beitreten</button><div id="player-join-error" style="color:var(--red);margin-top:8px;font-weight:600;"></div></div>
@@ -421,12 +468,116 @@
                 <div class="card hidden" id="player-waiting-card"><p style="text-align:center;">⏳ Warte auf die nächste Frage...</p><div style="text-align:center;"><span class="spinner"></span></div></div>`;
             }
 
-            async function setupPlayerJoin() { /* unverändert */ }
-            function subscribePlayerRealtime(session) { /* unverändert */ }
-            async function loadPlayerCurrentQuestion(session) { /* unverändert */ }
-            function renderPlayerAnswerArea(question) { /* unverändert */ }
-            async function submitPlayerAnswer() { /* unverändert */ }
-            async function updatePlayerRanking() { /* unverändert */ }
+            async function setupPlayerJoin() {
+                const btnJoin = document.getElementById('btn-join-session');
+                const nameInput = document.getElementById('player-name-input');
+                btnJoin.addEventListener('click', async () => {
+                    const name = nameInput.value.trim();
+                    if (!name) { document.getElementById('player-join-error').textContent = 'Bitte einen Namen eingeben!'; return; }
+                    initAudio(); btnJoin.disabled = true; btnJoin.textContent = '⏳ Tritt bei...';
+                    try {
+                        const { data: session, error: sessionErr } = await supabase.from('quiz_sessions').select('*').eq('id', currentSessionId).single();
+                        if (sessionErr || !session) throw new Error('Session nicht gefunden!');
+                        if (!session.active) throw new Error('Session ist nicht mehr aktiv.');
+                        const { data: player, error: playerErr } = await supabase.from('quiz_players').insert({ session_id: currentSessionId, player_name: name, total_score: 0 }).select().single();
+                        if (playerErr) throw playerErr;
+                        currentPlayerId = player.id; currentPlayerName = name;
+                        document.getElementById('player-join-card').classList.add('hidden');
+                        document.getElementById('player-game-card').classList.remove('hidden');
+                        document.getElementById('player-ranking-card').classList.remove('hidden');
+                        subscribePlayerRealtime(session);
+                        await loadPlayerCurrentQuestion(session);
+                    } catch(err) { document.getElementById('player-join-error').textContent = 'Fehler: ' + err.message; console.error(err); }
+                    btnJoin.disabled = false; btnJoin.textContent = '🚀 Beitreten';
+                });
+                document.addEventListener('click', async (e) => {
+                    if (currentView !== 'join') return;
+                    if (e.target.id === 'btn-submit-answer') await submitPlayerAnswer();
+                    if (e.target.classList.contains('option-btn') && !answerSubmitted) {
+                        document.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+                        e.target.classList.add('selected'); selectedMcOption = e.target.dataset.value;
+                    }
+                });
+            }
+
+            function subscribePlayerRealtime(session) {
+                supabase.channel('player-session-' + currentSessionId).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'quiz_sessions', filter: `id=eq.${currentSessionId}` }, async (payload) => {
+                    if (payload.new.current_question_index >= 0) await loadPlayerCurrentQuestion(payload.new);
+                }).subscribe();
+                if (currentPlayerId) supabase.channel('player-answers-' + currentPlayerId).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'quiz_answers', filter: `player_id=eq.${currentPlayerId}` }, async () => { await updatePlayerRanking(); }).subscribe();
+                supabase.channel('player-ranking-' + currentSessionId).on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_players', filter: `session_id=eq.${currentSessionId}` }, async () => { await updatePlayerRanking(); }).subscribe();
+            }
+
+            async function loadPlayerCurrentQuestion(session) {
+                const qIndex = session.current_question_index || 0;
+                const { data: questions } = await supabase.from('quiz_questions').select('*').eq('session_id', currentSessionId).order('order_index', { ascending: true });
+                if (!questions || qIndex >= questions.length) {
+                    document.getElementById('player-game-card').classList.add('hidden');
+                    document.getElementById('player-waiting-card').classList.add('hidden');
+                    document.getElementById('player-ranking-card').classList.remove('hidden');
+                    await updatePlayerRanking(); return;
+                }
+                currentQuestion = questions[qIndex]; answerSubmitted = false; selectedMcOption = null;
+                document.getElementById('player-game-card').classList.remove('hidden');
+                document.getElementById('player-waiting-card').classList.add('hidden');
+                document.getElementById('player-answer-confirmation').classList.add('hidden');
+                document.getElementById('player-question-text').textContent = currentQuestion.text;
+                document.getElementById('player-question-type').textContent = currentQuestion.type;
+                const imgEl = document.getElementById('player-question-image');
+                if (currentQuestion.image_url && currentQuestion.image_url.trim() !== '') { imgEl.src = currentQuestion.image_url; imgEl.style.display = 'block'; } else { imgEl.style.display = 'none'; }
+                if (currentPlayerId && currentQuestion) {
+                    const { data: existing } = await supabase.from('quiz_answers').select('*').eq('player_id', currentPlayerId).eq('question_id', currentQuestion.id).maybeSingle();
+                    if (existing) { answerSubmitted = true; document.getElementById('player-answer-confirmation').classList.remove('hidden'); document.getElementById('btn-submit-answer').disabled = true; }
+                }
+                renderPlayerAnswerArea(currentQuestion);
+                document.getElementById('btn-submit-answer').disabled = answerSubmitted;
+                if (!answerSubmitted) document.getElementById('player-answer-confirmation').classList.add('hidden');
+            }
+
+            function renderPlayerAnswerArea(question) {
+                const area = document.getElementById('player-answer-area'); if (!area) return;
+                if (question.type === 'MultipleChoice' && question.options) {
+                    const options = question.options.split(';').map(o => o.trim()).filter(Boolean);
+                    area.innerHTML = options.map(opt => { const v = opt.includes(':') ? opt.split(':')[1]?.trim() || opt : opt; return `<button class="option-btn" data-value="${escapeHtml(v)}">${escapeHtml(opt)}</button>`; }).join('');
+                    if (answerSubmitted && selectedMcOption) area.querySelectorAll('.option-btn').forEach(b => { if (b.dataset.value === selectedMcOption) b.classList.add('selected'); });
+                } else if (question.type === 'Aufzählung') {
+                    area.innerHTML = `<textarea id="player-text-answer" placeholder="Begriffe mit ; trennen (z.B. Rot;Grün;Blau)">${answerSubmitted && selectedMcOption ? escapeHtml(selectedMcOption) : ''}</textarea>`;
+                } else {
+                    area.innerHTML = `<input type="text" id="player-text-answer" placeholder="Deine Antwort..." value="${answerSubmitted && selectedMcOption ? escapeHtml(selectedMcOption) : ''}"/>`;
+                }
+                if (answerSubmitted) { const inp = document.getElementById('player-text-answer'); if (inp) inp.disabled = true; area.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'none'); }
+            }
+
+            async function submitPlayerAnswer() {
+                if (answerSubmitted || !currentPlayerId || !currentQuestion) return;
+                let answerText = '';
+                if (currentQuestion.type === 'MultipleChoice' && currentQuestion.options) { if (!selectedMcOption) { alert('Bitte eine Option auswählen!'); return; } answerText = selectedMcOption; }
+                else { const inp = document.getElementById('player-text-answer'); if (!inp || !inp.value.trim()) { alert('Bitte eine Antwort eingeben!'); return; } answerText = inp.value.trim(); }
+                answerSubmitted = true; selectedMcOption = answerText;
+                document.getElementById('btn-submit-answer').disabled = true;
+                document.getElementById('player-answer-confirmation').classList.remove('hidden');
+                const { error } = await supabase.from('quiz_answers').insert({ player_id: currentPlayerId, question_id: currentQuestion.id, answer_text: answerText, score_awarded: null, is_correct: false });
+                if (error) { console.error('Fehler beim Speichern der Antwort:', error); answerSubmitted = false; document.getElementById('btn-submit-answer').disabled = false; document.getElementById('player-answer-confirmation').classList.add('hidden'); alert('Fehler beim Speichern. Bitte versuche es erneut.'); }
+                const inp = document.getElementById('player-text-answer'); if (inp) inp.disabled = true;
+                document.querySelectorAll('.option-btn').forEach(b => b.style.pointerEvents = 'none');
+            }
+
+            async function updatePlayerRanking() {
+                if (!currentSessionId || !currentPlayerId) return;
+                const { data: allPlayers } = await supabase.from('quiz_players').select('*').eq('session_id', currentSessionId).order('total_score', { ascending: false });
+                if (!allPlayers) return;
+                players = allPlayers;
+                const ownPlayer = allPlayers.find(p => p.id === currentPlayerId);
+                if (ownPlayer) document.getElementById('player-own-score').textContent = (ownPlayer.total_score || 0).toFixed(3);
+                const rankingHtml = allPlayers.map((p, i) => {
+                    let bc = ''; if (i===0) bc='rank-1'; else if (i===1) bc='rank-2'; else if (i===2) bc='rank-3';
+                    const isMe = p.id === currentPlayerId;
+                    return `<tr style="${isMe ? 'background:#fffde4;font-weight:700;' : ''}"><td><span class="rank-badge ${bc}">${i+1}</span></td><td>${p.player_name} ${isMe ? '👈' : ''}</td><td><strong>${(p.total_score||0).toFixed(3)}</strong></td></tr>`;
+                }).join('');
+                document.getElementById('player-ranking-table').innerHTML = `<table class="ranking-table"><thead><tr><th>#</th><th>Spieler</th><th>Punkte</th></tr></thead><tbody>${rankingHtml}</tbody></table>`;
+                document.getElementById('player-ranking-card').classList.remove('hidden');
+            }
+
             function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
 
             // Start
