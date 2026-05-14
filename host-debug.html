@@ -1,51 +1,12 @@
 <!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>Host Debug</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        body { font-family: monospace; padding: 20px; background: #f0f0f0; }
-        pre { background: #fff; padding: 10px; border-radius: 8px; overflow: auto; }
-        .error { color: red; font-weight: bold; }
-        button { padding: 10px 20px; margin: 10px 0; }
-    </style>
-</head>
+<html>
+<head><title>Minimal Button</title></head>
 <body>
-<h2>🎤 Host (Debug)</h2>
-<button id="createBtn">✨ Neue Session erstellen</button>
-<div id="log"></div>
-
+<button id="btn">Klick mich</button>
+<pre id="out">--</pre>
 <script>
-    const SUPABASE_URL = 'https://xvnhtfmedzjblinchzmt.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_8wS4n-07wc2SCmniuTdYmA_uRIlNE4z';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    const logDiv = document.getElementById('log');
-
-    function addLog(msg, isError = false) {
-        const p = document.createElement('p');
-        p.textContent = msg;
-        if (isError) p.style.color = 'red';
-        logDiv.appendChild(p);
-        console.log(msg);
-    }
-
-    document.getElementById('createBtn').onclick = async () => {
-        addLog("▶️ Starte Session-Erstellung...");
-        const sessionName = "Test " + new Date().toLocaleTimeString();
-        try {
-            const { data, error } = await supabase
-                .from('quiz_sessions')
-                .insert({ session_name: sessionName, is_active: true, current_question_index: 0 })
-                .select()
-                .single();
-            if (error) throw error;
-            addLog(`✅ Session erstellt! ID: ${data.id}, Name: ${data.session_name}`);
-            addLog(`👉 QR-Code-Link: ${window.location.origin}${window.location.pathname.replace('host-debug.html', 'join.html')}?session=${data.id}`);
-        } catch (err) {
-            addLog(`❌ FEHLER: ${err.message}`, true);
-        }
+    document.getElementById('btn').onclick = function() {
+        document.getElementById('out').innerText = "Button wurde geklickt! (Kein Supabase)";
     };
 </script>
 </body>
