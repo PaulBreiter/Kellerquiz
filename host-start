@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Host Start</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h2>Session erstellen</h2>
+    <button id="btn">Neue Session</button>
+    <pre id="log">Bereit</pre>
+
+    <script>
+        const SUPABASE_URL = 'https://xvnhtfmedzjblinchzmt.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_8wS4n-07wc2SCmniuTdYmA_uRIlNE4z';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const log = document.getElementById('log');
+
+        document.getElementById('btn').onclick = async () => {
+            log.innerText = "Starte...";
+            try {
+                const { data, error } = await supabase
+                    .from('quiz_sessions')
+                    .insert({ name: "Mein erstes Quiz", active: true })
+                    .select();
+                if (error) throw error;
+                log.innerText = "✅ Session erstellt! ID: " + data[0].id;
+            } catch (err) {
+                log.innerText = "❌ Fehler: " + err.message;
+                console.error(err);
+            }
+        };
+    </script>
+</body>
+</html>
