@@ -71,7 +71,6 @@
             padding: 8px;
             border-radius: 16px;
         }
-        .correct { background: #2ecc71; }
         .qr { display: inline-block; background: white; padding: 10px; border-radius: 20px; }
         @media (max-width: 700px) { .players-grid { grid-template-columns: 1fr; } }
     </style>
@@ -83,7 +82,7 @@
         <div id="session-info"></div>
     </div>
 
-    <!-- Session erstellen / laden -->
+    <!-- Session erstellen -->
     <div class="card" id="setup-panel">
         <h2>1. Session starten</h2>
         <div class="flex-between">
@@ -97,7 +96,7 @@
     <!-- Excel Upload -->
     <div class="card" id="upload-panel" style="display: none;">
         <h2>2. Fragen importieren</h2>
-        <input type="file" id="excel-file" accept=".xlsx, .xls">
+        <input type="file" id="excel-file" accept=".xlsx, .xls, .csv">
         <button id="upload-excel">📂 Hochladen & Fragen speichern</button>
         <div id="upload-status"></div>
     </div>
@@ -126,9 +125,9 @@
 </div>
 
 <script>
-    // Supabase Konfiguration
-    const SUPABASE_URL = 'https://eaxuqsiwrfqshqkwtnlz.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_PViFkgap3gvsxBgG2NSAjA_Oc0eASzI';
+    // Supabase – DEINE NEUEN ZUGANGSDATEN
+    const SUPABASE_URL = 'https://xvnhtfmedzjblinchzmt.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_8wS4n-07wc2SCmniuTdYmA_uRIlNE4z';
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentSessionId = null;
@@ -138,7 +137,6 @@
     let currentQuestionType = null;
     let currentAnswers = [];
 
-    // Helper
     function showPanel(id) { document.getElementById(id).style.display = 'block'; }
     function hidePanel(id) { document.getElementById(id).style.display = 'none'; }
 
@@ -149,8 +147,7 @@
         if (error) { alert("Fehler: " + error.message); return; }
         currentSessionId = data.id;
         localStorage.setItem('livequiz_session', currentSessionId);
-        // QR-Code generieren
-        const joinUrl = `${window.location.origin}/livequiz-join.html?session=${currentSessionId}`;
+        const joinUrl = `${window.location.origin}${window.location.pathname.replace('host.html', 'join.html')}?session=${currentSessionId}`;
         document.getElementById('qr-container').innerHTML = `<div class="qr" id="qrcode"></div><p>Scannen zum Beitreten</p><a href="${joinUrl}" target="_blank">Direktlink</a>`;
         new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 150, height: 150 });
         document.getElementById('session-info').innerHTML = `<strong>Session-ID:</strong> ${currentSessionId} | Name: ${name}`;
@@ -163,14 +160,13 @@
     // Excel Upload
     document.getElementById('upload-excel').onclick = async () => {
         const file = document.getElementById('excel-file').files[0];
-        if (!file) return alert("Bitte Excel-Datei auswählen");
+        if (!file) return alert("Bitte Datei auswählen");
         const reader = new FileReader();
         reader.onload = async (e) => {
             const data = new Uint8Array(e.target.result);
             const wb = XLSX.read(data, { type: 'array' });
             const sheet = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(sheet);
-            // Fragen speichern
             for (let i = 0; i < rows.length; i++) {
                 const r = rows[i];
                 const question = {
@@ -188,7 +184,6 @@
                 await supabase.from('quiz_questions').upsert(question);
             }
             document.getElementById('upload-status').innerHTML = `${rows.length} Fragen geladen!`;
-            // Fragen abrufen
             const { data: qs } = await supabase.from('quiz_questions').select('*').eq('session_id', currentSessionId).order('order_index');
             currentQuestions = qs;
             currentQuestionIndex = 0;
@@ -221,14 +216,12 @@
             document.getElementById('question-options').innerHTML = '';
         }
         document.getElementById('timer-display').innerText = q.time_limit;
-        // Timer starten (optional)
         let seconds = q.time_limit;
         const timer = setInterval(() => {
             seconds--;
             document.getElementById('timer-display').innerText = seconds;
             if (seconds <= 0) clearInterval(timer);
         }, 1000);
-        // Aktuelle Antworten abonnieren
         loadAnswersForCurrentQuestion();
     }
 
@@ -239,7 +232,6 @@
             currentAnswers = data;
             renderAnswers(data);
         }
-        // Realtime subscription
         supabase.channel(`answers-${qid}`).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'quiz_answers', filter: `question_id=eq.${qid}` }, payload => {
             loadAnswersForCurrentQuestion();
         }).subscribe();
@@ -255,17 +247,16 @@
         const q = currentQuestions[currentQuestionIndex];
         const answers = currentAnswers;
         if (currentQuestionType === 'Schätzung') {
-            // Sortieren nach absoluter Differenz
             const correctNum = parseFloat(q.correct_answer);
             const withDiff = answers.map(a => ({ ...a, diff: Math.abs(parseFloat(a.answer_text) - correctNum) }));
             withDiff.sort((a,b) => a.diff - b.diff);
             const firstDiff = withDiff[0]?.diff;
             const secondDiff = withDiff[1]?.diff;
-            for (let i=0; i<withDiff.length; i++) {
+            for (let a of withDiff) {
                 let points = 0;
-                if (withDiff[i].diff === firstDiff) points = 1;
-                else if (withDiff[i].diff === secondDiff) points = 0.5;
-                await supabase.from('quiz_answers').update({ score_awarded: points, is_correct: points>0 }).eq('id', withDiff[i].id);
+                if (a.diff === firstDiff) points = 1;
+                else if (a.diff === secondDiff) points = 0.5;
+                await supabase.from('quiz_answers').update({ score_awarded: points, is_correct: points>0 }).eq('id', a.id);
             }
         } else if (currentQuestionType === 'Aufzählung') {
             const correctList = q.correct_answer.split(';').map(s => s.trim().toLowerCase());
@@ -287,7 +278,6 @@
                 await supabase.from('quiz_answers').update({ score_awarded: points, is_correct: points>0 }).eq('id', ans.id);
             }
         } else {
-            // Exakte Antwort (Freitext oder MC)
             for (let ans of answers) {
                 const isCorrect = ans.answer_text.trim().toLowerCase() === q.correct_answer.trim().toLowerCase();
                 const points = isCorrect ? 1 : 0;
@@ -302,7 +292,6 @@
             await supabase.from('quiz_players').update({ total_score: total }).eq('id', p.id);
         }
         alert("Auswertung abgeschlossen!");
-        // Nächste Frage
         currentQuestionIndex++;
         if (currentQuestionIndex < currentQuestions.length) loadCurrentQuestion();
         else alert("Quiz fertig!");
@@ -324,16 +313,16 @@
         }).subscribe();
     }
 
-    // Manuelle Punkteanpassung (simpler Prompt)
+    // Manuelle Punkteanpassung (vereinfacht)
     document.getElementById('manual-adjust').onclick = () => {
         const playerName = prompt("Spielername eingeben:");
-        const newPoints = parseFloat(prompt("Neue Punktzahl für diese Frage:"));
+        const newPoints = parseFloat(prompt("Neue Punktzahl für diese Frage (0-1):"));
         if (playerName && !isNaN(newPoints)) {
-            alert("Manuelle Anpassung – bitte in Supabase-UI vornehmen oder erweiterter Dialog folgt.");
+            alert("Manuelle Anpassung: Bitte in Supabase-UI oder erweiterter Dialog folgt.");
         }
     };
 
-    // Session wiederherstellen (falls vorhanden)
+    // Session wiederherstellen
     window.onload = () => {
         const saved = localStorage.getItem('livequiz_session');
         if (saved) {
