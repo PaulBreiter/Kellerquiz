@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>LIVE QUIZ – Spieler</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e2a3a, #0f172a);
+            margin: 0;
+            padding: 20px;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(12px);
+            border-radius: 48px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        input, button {
+            width: 100%;
+            padding: 14px;
+            margin: 12px 0;
+            border-radius: 60px;
+            border: none;
+            font-size: 1rem;
+        }
+        button {
+            background: #e67e22;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .question {
+            font-size: 1.4rem;
+            margin: 20px 0;
+        }
+        .answer-input {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        .ranking {
+            margin-top: 20px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+<div class="card" id="join-card">
+    <h2>🎮 LIVE QUIZ BEITRETEN</h2>
+    <input type="text" id="player-name" placeholder="Dein Name">
+    <button id="join-btn">Beitreten</button>
+</div>
+<div class="card" id="quiz-card" style="display: none;">
+    <div id="current-question"></div>
+    <div id="answer-area"></div>
+    <div id="ranking-area" class="ranking"></div>
+</div>
+<script>
+    const SUPABASE_URL = 'https://eaxuqsiwrfqshqkwtnlz.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_PViFkgap3gvsxBgG2NSAjA_Oc0eASzI';
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session');
+    let playerId = null;
+    let currentQuestion = null;
+
+    document.getElementById('join-btn').onclick = async () => {
+        const playerName = document.getElementById('player-name').value.trim();
+        if (!playerName) return alert("Bitte Namen eingeben");
+        if (!sessionId) return alert("Keine Session-ID in URL");
+        const { data, error } = await supabase.from('quiz_players').insert({ session_id: sessionId, player_name: playerName, total_score: 0 }).select().single();
+        if (error) { alert("Fehler: " + error.message); return; }
+        playerId = data.id;
+        document.getElementById('join-card').style.display = 'none';
+        document.getElementById('quiz-card').style.display = 'block';
+        subscribeToQuestions();
+    };
+
+    async function subscribeToQuestions() {
+        // Aktuelle Frage aus der Session holen
+        const { data: session } = await supabase.from('quiz_sessions').select('current_question_index').eq('id', sessionId).single();
+        const { data: questions } = await supabase.from('quiz_questions').select('*').eq('session_id', sessionId).order('order_index');
+        if (questions && questions[session.current_question_index]) {
+            showQuestion(questions[session.current_question_index]);
+        }
+        // Realtime auf Änderung des Index
+        supabase.channel('session-update').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'quiz_sessions', filter: `id=eq.${sessionId}` }, payload => {
+            const newIndex = payload.new.current_question_index;
+            if (questions && questions[newIndex]) showQuestion(questions[newIndex]);
+        }).subscribe();
+    }
+
+    function showQuestion(q) {
+        currentQuestion = q;
+        document.getElementById('current-question').innerHTML = `<div class="question">${q.question_text}</div>${q.image_url ? `<img src="${q.image_url}" style="max-width:100%; border-radius:20px;">` : ''}`;
+        let inputHtml = '';
+        if (q.question_type === 'MultipleChoice' && q.options) {
+            const opts = q.options.split(';');
+            inputHtml = '<div>';
+            opts.forEach(opt => {
+                inputHtml += `<button style="display:block; width:100%; margin:5px 0; background:#3498db;" onclick="sendAnswer('${opt.replace(/'/g, "\\'")}')">${opt}</button>`;
+            });
+            inputHtml += '</div>';
+        } else {
+            inputHtml = `<input type="text" id="free-answer" class="answer-input" placeholder="Deine Antwort"><button onclick="sendAnswer(document.getElementById('free-answer').value)">Antwort senden</button>`;
+        }
+        document.getElementById('answer-area').innerHTML = inputHtml;
+    }
+
+    async function sendAnswer(answer) {
+        if (!answer) return;
+        await supabase.from('quiz_answers').insert({
+            player_id: playerId,
+            question_id: currentQuestion.id,
+            answer_text: answer,
+            score_awarded: 0,
+            is_correct: false
+        });
+        alert("Antwort gespeichert!");
+        document.getElementById('free-answer').value = '';
+    }
+
+    // Ranking abrufen
+    async function updateRanking() {
+        const { data } = await supabase.from('quiz_players').select('player_name, total_score').eq('session_id', sessionId).order('total_score', { ascending: false });
+        let html = '<h3>🏆 Aktueller Punktestand</h3>';
+        data.forEach(p => html += `<div><strong>${p.player_name}</strong>: ${p.total_score} Punkte</div>`);
+        document.getElementById('ranking-area').innerHTML = html;
+    }
+    setInterval(updateRanking, 2000);
+</script>
+</body>
+</html>
