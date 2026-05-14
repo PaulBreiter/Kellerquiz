@@ -41,18 +41,10 @@
             font-weight: bold;
             cursor: pointer;
         }
-        .question {
-            font-size: 1.4rem;
-            margin: 20px 0;
-        }
-        .answer-input {
-            background: rgba(255,255,255,0.2);
-            color: white;
-        }
-        .ranking {
-            margin-top: 20px;
-            text-align: left;
-        }
+        .question { font-size: 1.4rem; margin: 20px 0; }
+        .answer-input { background: rgba(255,255,255,0.2); color: white; }
+        .ranking { margin-top: 20px; text-align: left; }
+        img { max-width: 100%; border-radius: 20px; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -67,8 +59,8 @@
     <div id="ranking-area" class="ranking"></div>
 </div>
 <script>
-    const SUPABASE_URL = 'https://eaxuqsiwrfqshqkwtnlz.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_PViFkgap3gvsxBgG2NSAjA_Oc0eASzI';
+    const SUPABASE_URL = 'https://xvnhtfmedzjblinchzmt.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_8wS4n-07wc2SCmniuTdYmA_uRIlNE4z';
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -79,7 +71,7 @@
     document.getElementById('join-btn').onclick = async () => {
         const playerName = document.getElementById('player-name').value.trim();
         if (!playerName) return alert("Bitte Namen eingeben");
-        if (!sessionId) return alert("Keine Session-ID in URL");
+        if (!sessionId) return alert("Keine Session-ID in URL – bitte QR-Code scannen");
         const { data, error } = await supabase.from('quiz_players').insert({ session_id: sessionId, player_name: playerName, total_score: 0 }).select().single();
         if (error) { alert("Fehler: " + error.message); return; }
         playerId = data.id;
@@ -89,13 +81,11 @@
     };
 
     async function subscribeToQuestions() {
-        // Aktuelle Frage aus der Session holen
         const { data: session } = await supabase.from('quiz_sessions').select('current_question_index').eq('id', sessionId).single();
         const { data: questions } = await supabase.from('quiz_questions').select('*').eq('session_id', sessionId).order('order_index');
         if (questions && questions[session.current_question_index]) {
             showQuestion(questions[session.current_question_index]);
         }
-        // Realtime auf Änderung des Index
         supabase.channel('session-update').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'quiz_sessions', filter: `id=eq.${sessionId}` }, payload => {
             const newIndex = payload.new.current_question_index;
             if (questions && questions[newIndex]) showQuestion(questions[newIndex]);
@@ -104,7 +94,7 @@
 
     function showQuestion(q) {
         currentQuestion = q;
-        document.getElementById('current-question').innerHTML = `<div class="question">${q.question_text}</div>${q.image_url ? `<img src="${q.image_url}" style="max-width:100%; border-radius:20px;">` : ''}`;
+        document.getElementById('current-question').innerHTML = `<div class="question">${q.question_text}</div>${q.image_url ? `<img src="${q.image_url}">` : ''}`;
         let inputHtml = '';
         if (q.question_type === 'MultipleChoice' && q.options) {
             const opts = q.options.split(';');
@@ -129,10 +119,9 @@
             is_correct: false
         });
         alert("Antwort gespeichert!");
-        document.getElementById('free-answer').value = '';
+        if (document.getElementById('free-answer')) document.getElementById('free-answer').value = '';
     }
 
-    // Ranking abrufen
     async function updateRanking() {
         const { data } = await supabase.from('quiz_players').select('player_name, total_score').eq('session_id', sessionId).order('total_score', { ascending: false });
         let html = '<h3>🏆 Aktueller Punktestand</h3>';
