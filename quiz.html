@@ -77,7 +77,7 @@
             let currentView = null, currentSessionId = null, currentPlayerId = null, currentPlayerName = null;
             let currentQuestion = null, allQuestions = [], players = [], answersForCurrentQuestion = [];
             let answerSubmitted = false, selectedMcOption = null;
-            let questionEvaluated = false; // ob aktuelle Frage bereits ausgewertet wurde
+            let questionEvaluated = false; // true, wenn aktuelle Frage ausgewertet wurde
             let audioCtx = null;
             let joinUrl = '';
 
@@ -210,8 +210,9 @@
                     currentQuestion = allQuestions[qIndex];
                     document.getElementById('host-question-card').classList.remove('hidden');
                     displayHostQuestion(currentQuestion);
-                    questionEvaluated = false; // noch nicht ausgewertet
                     await loadAnswersForCurrentQuestion();
+                    // Prüfen, ob bereits ausgewertet wurde (irgendeine Antwort hat einen score)
+                    questionEvaluated = answersForCurrentQuestion.some(a => a.score_awarded !== null && a.score_awarded !== undefined);
                     updateHostButtons();
                 }
                 if (session.current_question_index >= allQuestions.length && allQuestions.length > 0) showFinalRanking();
@@ -224,10 +225,17 @@
                 const btnManual = document.getElementById('btn-manual-score');
                 btnStart.style.display = 'none'; btnEval.classList.add('hidden'); btnNext.classList.add('hidden'); btnManual.classList.add('hidden');
                 if (!currentQuestion) { btnStart.style.display = 'inline-block'; return; }
-                if (!questionEvaluated && answersForCurrentQuestion.length === 0) btnStart.style.display = 'inline-block';
-                if (!questionEvaluated && answersForCurrentQuestion.length > 0) { btnEval.classList.remove('hidden'); btnManual.classList.remove('hidden'); }
-                if (questionEvaluated) {
-                    btnNext.classList.remove('hidden'); btnEval.classList.add('hidden'); btnStart.style.display = 'none';
+                // Vor der Auswertung: Frage kann gestartet werden, wenn noch keine Antworten da sind; Auswerten-Button zeigen, wenn Antworten vorhanden
+                if (!questionEvaluated) {
+                    if (answersForCurrentQuestion.length === 0) {
+                        btnStart.style.display = 'inline-block';
+                    } else {
+                        btnEval.classList.remove('hidden');
+                    }
+                } else {
+                    // Nach der Auswertung
+                    btnNext.classList.remove('hidden');
+                    btnManual.classList.remove('hidden');
                 }
             }
 
@@ -288,7 +296,6 @@
                     await supabase.from('quiz_questions').delete().eq('session_id', currentSessionId);
                     const questionsToInsert = data.map((row, index) => {
                         let image = row['Bild-URL']?.toString().trim() || null;
-                        if (image && image.startsWith('data:image/')) image = image; // Base64 direkt übernehmen
                         return {
                             session_id: currentSessionId,
                             text: row['Frage']?.toString().trim() || '',
@@ -348,10 +355,6 @@
                 answerSubmitted = false; selectedMcOption = null; answersForCurrentQuestion = [];
                 document.getElementById('host-question-card').classList.remove('hidden');
                 displayHostQuestion(currentQuestion);
-                document.getElementById('btn-start-question').style.display = 'none';
-                document.getElementById('btn-evaluate').classList.add('hidden');
-                document.getElementById('btn-next-question').classList.add('hidden');
-                document.getElementById('btn-manual-score').classList.add('hidden');
                 document.getElementById('host-answers-container').innerHTML = '<p style="color:#999;">Warte auf Antworten...</p>';
                 document.getElementById('host-answer-count').textContent = '0';
                 updateHostButtons();
@@ -406,9 +409,8 @@
                 questionEvaluated = true;
                 await loadAnswersForCurrentQuestion();
                 updates.filter(u => u.isCorrect).forEach(u => { const row = document.getElementById('answer-row-' + u.answer.id); if (row) row.classList.add('correct-glow'); });
-                btnEval.disabled = false; btnEval.textContent = '📊 Auswerten'; btnEval.classList.add('hidden');
-                document.getElementById('btn-next-question').classList.remove('hidden');
-                // Manuelle Anpassung weiterhin anzeigen, falls erwünscht; bleibt durch Button sichtbar.
+                btnEval.disabled = false; btnEval.textContent = '📊 Auswerten';
+                updateHostButtons();
             }
 
             function evaluateAufzaehlung(playerAnswer, correctAnswer, strictOrder, scoringRule) {
@@ -432,9 +434,9 @@
                 answerSubmitted = false; selectedMcOption = null; answersForCurrentQuestion = [];
                 document.getElementById('host-question-card').classList.remove('hidden');
                 displayHostQuestion(currentQuestion);
-                document.getElementById('btn-start-question').style.display = 'none'; document.getElementById('btn-evaluate').classList.add('hidden'); document.getElementById('btn-next-question').classList.add('hidden'); document.getElementById('btn-manual-score').classList.add('hidden');
                 document.getElementById('host-answers-container').innerHTML = '<p style="color:#999;">Warte auf Antworten...</p>';
                 document.getElementById('host-answer-count').textContent = '0';
+                updateHostButtons();
             }
 
             function showFinalRanking() {
